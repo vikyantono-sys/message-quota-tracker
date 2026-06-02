@@ -1,0 +1,2077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YOBO — Merchant Message Quota Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --ink:#0e1a2b;
+    --navy:#13243d;
+    --navy-2:#1c3457;
+    --paper:#f4f6f9;
+    --card:#ffffff;
+    --line:#e5e9f0;
+    --line-strong:#d2d9e4;
+    --muted:#6a7689;
+    --muted-2:#909bad;
+    --accent:#2563a8;
+    --green:#1c9856;
+    --green-bg:#e7f6ed;
+    --amber:#bd7d10;
+    --amber-bg:#fbf2dd;
+    --red:#d13a48;
+    --red-bg:#fce8ea;
+    --slate:#5a6b82;
+    --slate-bg:#eef1f6;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(16,26,43,.05), 0 4px 14px rgba(16,26,43,.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.45;
+  }
+  .mono{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;}
+
+  /* ---------- Header ---------- */
+  header.top{
+    background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);
+    color:#fff;
+    padding:26px 32px 22px;
+    border-bottom:3px solid #0a1626;
+    position:relative;
+    overflow:hidden;
+  }
+  header.top::after{
+    content:"";position:absolute;inset:0;
+    background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);
+    background-size:18px 18px;opacity:.5;pointer-events:none;
+  }
+  .top-inner{max-width:1480px;margin:0 auto;position:relative;z-index:1;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+  .brand-block h1{font-size:21px;font-weight:700;margin:0;letter-spacing:-.2px;}
+  .brand-block .sub{font-size:12.5px;color:#aeb9cc;margin-top:3px;font-weight:400;letter-spacing:.2px;}
+  .brand-tag{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:600;
+    letter-spacing:1.2px;text-transform:uppercase;color:#8fa6c6;margin-bottom:8px;}
+  .brand-tag .dot{width:7px;height:7px;border-radius:50%;background:#36c07a;box-shadow:0 0 0 3px rgba(54,192,122,.25);}
+  .top-controls{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+  .ctl{display:flex;flex-direction:column;gap:5px;}
+  .ctl label{font-size:10.5px;text-transform:uppercase;letter-spacing:.9px;color:#9fb0c9;font-weight:600;}
+  .ctl input,.ctl select{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink);
+    background:#fbfcfe;border:1px solid #314b72;border-radius:7px;
+    padding:7px 9px;min-width:140px;outline:none;
+  }
+  .ctl select{cursor:pointer;}
+
+  /* ---------- Layout ---------- */
+  main{max-width:1480px;margin:0 auto;padding:24px 32px 60px;}
+
+  /* ---------- Stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:15px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;}
+  .stat .v{font-size:30px;font-weight:600;margin-top:3px;letter-spacing:-1px;}
+  .stat .bar{position:absolute;left:0;top:0;bottom:0;width:4px;}
+  .stat.total .bar{background:var(--accent);}
+  .stat.over .bar{background:var(--red);} .stat.over .v{color:var(--red);}
+  .stat.warn .bar{background:var(--amber);} .stat.warn .v{color:var(--amber);}
+  .stat.ok .bar{background:var(--green);} .stat.ok .v{color:var(--green);}
+  .stat.att .bar{background:var(--slate);} .stat.att .v{color:var(--slate);}
+  .stat .meta{font-size:11px;color:var(--muted-2);margin-top:2px;}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    margin-bottom:14px;flex-wrap:wrap;}
+  .toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .toolbar-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .conn{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--slate);
+    background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 12px;white-space:nowrap;}
+  .conn .d{width:7px;height:7px;border-radius:50%;background:var(--muted-2);}
+  .conn.live{color:var(--green);border-color:#bfe6cf;background:var(--green-bg);} .conn.live .d{background:var(--green);box-shadow:0 0 0 3px rgba(28,152,86,.18);}
+  .conn.busy{color:var(--accent);border-color:#cfe0f5;background:#eef5fc;} .conn.busy .d{background:var(--accent);animation:pulse 1s infinite;}
+  .conn.err{color:var(--red);border-color:#f3cdd2;background:var(--red-bg);} .conn.err .d{background:var(--red);}
+  .conn.demo{color:var(--amber);border-color:#f0dcb0;background:var(--amber-bg);} .conn.demo .d{background:var(--amber);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .btn-refresh{font-family:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;background:var(--navy);color:#fff;display:inline-flex;align-items:center;gap:7px;transition:.12s;}
+  .btn-refresh:hover{background:var(--navy-2);}
+  .btn-refresh:disabled{opacity:.55;cursor:default;}
+  .btn-refresh .ico{font-size:14px;line-height:1;display:inline-block;}
+  .btn-refresh.spinning .ico{animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .signout{font-size:11.5px;color:var(--muted);text-decoration:underline;cursor:pointer;background:none;border:0;font-family:inherit;}
+  .signout:hover{color:var(--ink);}
+  .setup-note{background:var(--amber-bg);border:1px solid #f0dcb0;border-left:3px solid var(--amber);border-radius:8px;
+    padding:14px 16px;margin-bottom:16px;font-size:12.5px;color:#7a560a;line-height:1.6;}
+  .setup-note b{color:#5e4208;}
+  .setup-note ol{margin:8px 0 0;padding-left:20px;} .setup-note li{margin-bottom:5px;}
+  .setup-note code{font-family:'IBM Plex Mono',monospace;background:#fff;border:1px solid #ecd9aa;padding:1px 5px;border-radius:4px;font-size:11px;}
+  .fallback-toggle{font-size:11.5px;color:var(--muted);cursor:pointer;text-decoration:underline;user-select:none;}
+  .fallback-wrap{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line-strong);}
+  .seg{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{border:0;background:transparent;font-family:inherit;font-size:12.5px;font-weight:500;
+    color:var(--slate);padding:7px 13px;cursor:pointer;border-right:1px solid var(--line);transition:.12s;}
+  .seg button:last-child{border-right:0;}
+  .seg button.active{background:var(--navy);color:#fff;}
+  .seg button:not(.active):hover{background:var(--slate-bg);}
+  select.sortsel{font-family:inherit;font-size:12.5px;color:var(--ink);background:#fff;
+    border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;outline:none;}
+  .updated{font-size:12px;color:var(--muted);}
+  .updated b{color:var(--ink);font-weight:600;}
+
+  /* ---------- Table ---------- */
+  .table-wrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;}
+  .scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;min-width:1080px;}
+  thead th{
+    background:var(--navy);color:#dce4f0;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.8px;font-weight:600;text-align:left;padding:12px 14px;position:sticky;top:0;
+    white-space:nowrap;border-bottom:1px solid #0a1626;
+  }
+  thead th.num{text-align:right;}
+  tbody td{padding:13px 14px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody tr{transition:background .12s;animation:fade .4s ease both;}
+  tbody tr:hover{background:#fafbfd;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  td.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  .brand-cell .name{font-weight:600;font-size:13.5px;letter-spacing:-.1px;}
+  .brand-cell .key{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted-2);margin-top:2px;}
+  .flag{display:inline-block;font-size:9.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;
+    padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;}
+  .flag.miss{background:var(--red-bg);color:var(--red);}
+
+  .pill{display:inline-block;font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;
+    background:var(--slate-bg);color:var(--slate);white-space:nowrap;}
+  .pill.value{background:#eaf1fb;color:var(--accent);}
+
+  .period{font-size:12px;color:var(--slate);white-space:nowrap;}
+  .period .lbl{font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+
+  /* consumption bar */
+  .cons{min-width:190px;}
+  .cons .row1{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px;}
+  .cons .pct{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;}
+  .cons .proj{font-size:10.5px;color:var(--muted-2);white-space:nowrap;}
+  .track{height:7px;background:#eef1f6;border-radius:20px;overflow:hidden;}
+  .fill{height:100%;border-radius:20px;width:0;transition:width .8s cubic-bezier(.2,.7,.3,1);}
+  .fill.g{background:var(--green);} .fill.a{background:var(--amber);} .fill.r{background:var(--red);}
+  .cons.na{color:var(--muted-2);font-size:12px;font-style:normal;}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+    padding:4px 10px;border-radius:6px;white-space:nowrap;}
+  .badge .d{width:6px;height:6px;border-radius:50%;}
+  .badge.ok{background:var(--green-bg);color:var(--green);} .badge.ok .d{background:var(--green);}
+  .badge.warn{background:var(--amber-bg);color:var(--amber);} .badge.warn .d{background:var(--amber);}
+  .badge.over{background:var(--red-bg);color:var(--red);} .badge.over .d{background:var(--red);}
+  .badge.att{background:var(--slate-bg);color:var(--slate);} .badge.att .d{background:var(--slate);}
+
+  .neg{color:var(--red);}
+
+  /* ---------- Panels ---------- */
+  details.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden;}
+  details.panel>summary{cursor:pointer;list-style:none;padding:15px 20px;font-weight:600;font-size:14px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;user-select:none;}
+  details.panel>summary::-webkit-details-marker{display:none;}
+  summary .chev{transition:transform .2s;color:var(--muted);font-size:13px;}
+  details[open] summary .chev{transform:rotate(90deg);}
+  summary .sumtag{font-size:11.5px;font-weight:500;color:var(--muted);}
+  .panel-body{padding:0 20px 20px;}
+
+  .help{font-size:13px;color:var(--slate);margin:0 0 14px;}
+  .help b{color:var(--ink);}
+  .help ol{margin:8px 0 0;padding-left:20px;}
+  .help li{margin-bottom:4px;}
+
+  .sqlbox{position:relative;background:#0f1b2d;border-radius:8px;overflow:hidden;margin-bottom:16px;}
+  .sqlbox pre{margin:0;padding:16px 18px;overflow-x:auto;color:#cdd9ec;font-family:'IBM Plex Mono',monospace;
+    font-size:12px;line-height:1.6;}
+  .sqlbox pre .kw{color:#7fb0ff;} .sqlbox pre .fn{color:#6fd2b0;} .sqlbox pre .st{color:#e6c07b;}
+  .sqlbox pre .cm{color:#6b7a93;font-style:italic;}
+  .copybtn{position:absolute;top:10px;right:10px;background:#27405f;color:#dce4f0;border:0;
+    font-family:inherit;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;transition:.12s;}
+  .copybtn:hover{background:#345380;}
+  .copybtn.done{background:var(--green);color:#fff;}
+
+  textarea.paste{width:100%;min-height:120px;resize:vertical;font-family:'IBM Plex Mono',monospace;
+    font-size:12px;line-height:1.5;color:var(--ink);background:#fbfcfe;border:1px solid var(--line-strong);
+    border-radius:8px;padding:12px 14px;outline:none;}
+  textarea.paste:focus{border-color:var(--accent);background:#fff;}
+  .paste-actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;}
+  .btn{font-family:inherit;font-size:13px;font-weight:600;padding:9px 18px;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;transition:.12s;}
+  .btn.primary{background:var(--navy);color:#fff;}
+  .btn.primary:hover{background:var(--navy-2);}
+  .btn.ghost{background:#fff;color:var(--slate);border:1px solid var(--line-strong);}
+  .btn.ghost:hover{background:var(--slate-bg);}
+  .parse-msg{font-size:12.5px;font-weight:500;}
+  .parse-msg.ok{color:var(--green);} .parse-msg.err{color:var(--red);}
+
+  table.mini{width:100%;border-collapse:collapse;}
+  table.mini th{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+    text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);font-weight:600;}
+  table.mini th.num,table.mini td.num{text-align:right;}
+  table.mini td{padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;}
+  table.mini tr:last-child td{border-bottom:0;}
+  .empty{color:var(--muted-2);font-size:13px;padding:6px 2px;}
+
+  .legend{font-size:12px;color:var(--muted);line-height:1.7;margin-top:18px;}
+  .legend .lg{display:inline-flex;align-items:center;gap:6px;margin-right:18px;}
+  .legend .lg .d{width:8px;height:8px;border-radius:50%;}
+  .assump{font-size:12px;color:var(--slate);background:#fff;border:1px solid var(--line);
+    border-left:3px solid var(--accent);border-radius:8px;padding:14px 16px;margin-top:14px;line-height:1.65;}
+  .assump b{color:var(--ink);}
+  .assump code{font-family:'IBM Plex Mono',monospace;background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:11.5px;}
+
+  @media (max-width:1100px){ .stats{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .stats{grid-template-columns:1fr;} main{padding:18px;} header.top{padding:20px;} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand-block">
+      <div class="brand-tag"><span class="dot"></span> YOBO · AM / Ops</div>
+      <h1>Merchant Message Quota Tracker</h1>
+      <div class="sub">Consumption vs. allocation across WhatsApp merchants · source: <span class="mono">dashboard_cache.cache_message_allmerchant</span></div>
+    </div>
+    <div class="top-controls">
+      <div class="ctl">
+        <label for="asof">As of date</label>
+        <input type="date" id="asof">
+      </div>
+      <div class="ctl">
+        <label for="valbasis">Value basis</label>
+        <select id="valbasis">
+          <option value="total">Total charge</option>
+          <option value="merchant">Merchant-borne</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- STAT STRIP -->
+  <div class="stats" id="stats"></div>
+
+  <!-- CONNECTION / DATA PANEL -->
+  <details class="panel" id="loader">
+    <summary>
+      <span><span class="chev">▸</span>&nbsp; Connection &amp; query <span style="font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted-2);background:var(--slate-bg);padding:2px 7px;border-radius:4px;margin-left:4px;">data team</span></span>
+      <span class="sumtag" id="loadtag">Click “Refresh from BigQuery” to pull live data</span>
+    </summary>
+    <div class="panel-body">
+
+      <div class="setup-note" id="setupnote" style="display:none">
+        <b>One-time setup required before live refresh works.</b> Until this is done, the page shows the embedded snapshot below.
+        <ol>
+          <li>In the <code>qraved-id</code> Google Cloud project, create an <b>OAuth 2.0 Client ID</b> (type: Web application). Under <b>Authorized JavaScript origins</b>, add the GitHub Pages origin this file is hosted at (e.g. <code>https://yourorg.github.io</code>).</li>
+          <li>Open this file's source and set <code>CONFIG.CLIENT_ID</code>, <code>CONFIG.PROJECT_ID</code> and <code>CONFIG.LOCATION</code> at the top of the script.</li>
+          <li>Grant each AM/Ops Google account <b>BigQuery Data Viewer</b> + <b>BigQuery Job User</b> on the project (ideally scoped to a read-only view in <code>agent_safe_views</code>).</li>
+          <li>Quotas are read live from the <code>internal_gsheet.Quota_Tracker</code> Google Sheet, so each user also needs <b>view access to that sheet</b> — the page requests Google Drive read scope to load it. (To avoid the Drive dependency, you can instead materialize the sheet into a native BigQuery table and point the query at it.)</li>
+          <li>Commit and push to GitHub Pages, then share the page URL.</li>
+        </ol>
+      </div>
+
+      <p class="help" id="connhelp">
+        Live data is pulled straight from BigQuery in your browser when you click <b>Refresh from BigQuery</b> above — you'll sign in with your Google account the first time.
+        The query run is shown below for transparency. <span id="signoutwrap" style="display:none">&nbsp;·&nbsp;<button class="signout" id="signoutbtn">Sign out</button></span>
+      </p>
+
+      <div class="sqlbox">
+        <button class="copybtn" id="copysql">Copy SQL</button>
+        <pre id="sqlpre"></pre>
+      </div>
+
+      <div class="fallback-wrap">
+        <div class="fallback-toggle" id="fbtoggle">▸ Manual paste fallback (if BigQuery is unavailable)</div>
+        <div id="fbbody" style="display:none;margin-top:12px;">
+          <textarea class="paste" id="paste" placeholder="Paste query results here (tab- or comma-separated, including the header row: source_table  month  messages_sent  value_total  value_merchant)"></textarea>
+          <div class="paste-actions">
+            <button class="btn primary" id="loadbtn">Load from paste</button>
+            <button class="btn ghost" id="clearbtn">Revert to embedded</button>
+            <span class="parse-msg" id="parsemsg"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="seg" id="filterseg">
+        <button data-f="all" class="active">All</button>
+        <button data-f="over">Over</button>
+        <button data-f="warn">Warning</button>
+        <button data-f="ok">Healthy</button>
+        <button data-f="att">Needs attention</button>
+      </div>
+      <select class="sortsel" id="sortsel">
+        <option value="crit">Sort: Criticality</option>
+        <option value="pct">Sort: % used (high→low)</option>
+        <option value="used">Sort: Used (high→low)</option>
+        <option value="brand">Sort: Brand (A→Z)</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <span class="updated" id="updated">Data: <b>embedded</b></span>
+      <span class="conn" id="conn"><span class="d"></span><span id="conntxt">Not connected</span></span>
+      <button class="btn-refresh" id="refreshbtn"><span class="ico">&#x21bb;</span> <span id="refreshlbl">Refresh from BigQuery</span></button>
+    </div>
+  </div>
+
+  <!-- MAIN TABLE -->
+  <div class="table-wrap">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Brand</th>
+            <th>Quota Type</th>
+            <th>Active Period</th>
+            <th class="num">Used</th>
+            <th class="num">Quota</th>
+            <th class="num">Remaining</th>
+            <th>Consumption</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LEGEND + ASSUMPTIONS -->
+  <div class="legend">
+    <span class="lg"><span class="d" style="background:var(--green)"></span> Healthy (&lt;80%)</span>
+    <span class="lg"><span class="d" style="background:var(--amber)"></span> Warning (80–99%)</span>
+    <span class="lg"><span class="d" style="background:var(--red)"></span> Over quota (≥100%)</span>
+    <span class="lg"><span class="d" style="background:var(--slate)"></span> Needs attention (no quota type / not live yet / no data)</span>
+  </div>
+
+  <div class="assump">
+    <b>How periods are measured</b> &nbsp;·&nbsp;
+    Quotas are read live from the <code>internal_gsheet.Quota_Tracker</code> sheet — edit them there and Refresh.
+    <b>Monthly</b> quotas count within the calendar month of the “as of” date (resets each month).
+    <b>3&nbsp;Months</b> quotas use a rolling 3-month bucket anchored on the live date.
+    <b>1&nbsp;Time</b> quotas are cumulative from the merchant's <b>live date</b> (a one-time allocation, no reset); a 1-Time row with no live date shows as “needs attention” until the date is filled in the sheet. A 1-Time merchant who has sent more than its allocation will correctly read over quota.
+    Count-based quotas track <code>SUM(message_sent)</code>; value-based quotas track <code>SUM(message_charge_total)</code> (switchable to merchant-borne above).
+    Calendar-month is assumed for monthly resets. A merchant in the sheet whose name has no recognized <code>source_table</code> mapping is flagged — add it to the map (or add a source_table column to the sheet).
+  </div>
+
+  <!-- UNTRACKED -->
+  <details class="panel" id="untrackedpanel" style="margin-top:18px;">
+    <summary>
+      <span><span class="chev">▸</span>&nbsp; Merchants with traffic but no quota configured</span>
+      <span class="sumtag" id="untag">—</span>
+    </summary>
+    <div class="panel-body">
+      <p class="help">Source tables that appear in the usage data but aren't in the quota list above. Useful for catching brands sending messages without an agreed quota.</p>
+      <table class="mini">
+        <thead><tr><th>Source table</th><th class="num">Messages (all-time)</th><th class="num">Value (all-time)</th></tr></thead>
+        <tbody id="untbody"></tbody>
+      </table>
+    </div>
+  </details>
+
+</main>
+
+<script>
+/* ===========================================================================
+   BIGQUERY CONNECTION CONFIG  —  set these three values, then host on GitHub Pages
+   ---------------------------------------------------------------------------
+   1. CLIENT_ID  : OAuth 2.0 Client ID (Web application) from the qraved-id GCP
+                   project. Add the GitHub Pages origin this page is hosted at
+                   (e.g. https://yourorg.github.io) to the client's
+                   "Authorized JavaScript origins".
+   2. PROJECT_ID : the GCP project the query runs in / is billed to (usually qraved-id).
+   3. LOCATION   : BigQuery region of the dashboard_cache dataset. "US" for the US
+                   multi-region; change to e.g. "asia-southeast2" if it's regional.
+                   Leave "" to let BigQuery auto-detect.
+   Each AM/Ops user also needs IAM on the project:
+   BigQuery Data Viewer + BigQuery Job User (ideally scoped to a safe read view).
+   =========================================================================== */
+const CONFIG = {
+  CLIENT_ID : "YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+  PROJECT_ID: "qraved-id",
+  LOCATION  : "US",
+};
+
+/* ============================================================
+   QUOTA CONFIG  — keyed on source_table from the base query
+   basis: 'count' (messages) or 'value' (IDR)
+   type:  'Monthly' | '3 Months' | '1 Time' | null (unset)
+   live:  go-live date (YYYY-MM-DD) or null
+   start: OPTIONAL grant date (YYYY-MM-DD) for a 1 Time quota —
+          when set, the 1-Time window counts FROM this date instead
+          of all-time / live date. Add it per merchant as needed.
+   ============================================================ */
+const QUOTAS_FALLBACK = [
+  { brand:"BB.Q Chicken",                       key:"bbq chicken",     type:"Monthly",  basis:"count", amount:2000,    live:"2026-04-02" },
+  { brand:"Blueprint",                          key:"blueprint",       type:"Monthly",  basis:"count", amount:1000,    live:"2026-04-01" },
+  { brand:"Three Uncles Sentul",                key:"3_uncles_sentul", type:"1 Time",   basis:"value", amount:500000,  live:null },
+  { brand:"Seroeni Sentul",                     key:"seroeni_sentul",  type:"1 Time",   basis:"value", amount:750000,  live:null },
+  { brand:"Seroeni",                            key:"seroeni",         type:"1 Time",   basis:"value", amount:2250000, live:null },
+  { brand:"Three Uncles",                       key:"3_uncles",        type:"1 Time",   basis:"value", amount:1500000, live:null },
+  { brand:"Kedai KopiKing",                     key:"KopiKing",        type:null,       basis:null,    amount:null,    live:"2025-08-17" },
+  { brand:"Ramen Sanpachi 38 AEON Mall Sentul", key:"Sanpachi Sentul", type:null,       basis:null,    amount:null,    live:"2025-08-21" },
+  { brand:"Simetri Coffee",                     key:"Simetri Coffee",  type:"1 Time",   basis:"value", amount:5000000, live:"2025-11-07" },
+  { brand:"Bulky Koi",                          key:"bulky_koi",       type:"3 Months", basis:"count", amount:2000,    live:"2026-11-21", missing:true },
+  { brand:"Dimitree",                           key:"Dimitree Cafe",   type:"1 Time",   basis:"count", amount:2000,    live:"2025-11-27" },
+  { brand:"Morf Wellness",                      key:"Morf Wellness",   type:"1 Time",   basis:"count", amount:1165,    live:"2026-12-23" },
+  { brand:"Hong Kong Bay",                      key:"Hong Kong Bay",   type:"1 Time",   basis:"count", amount:1165,    live:"2026-01-23" },
+  { brand:"Rejuve by dr. Lisna",                key:"Rejuve dr lisna", type:"Monthly",  basis:"count", amount:1000,    live:"2026-02-13" },
+  { brand:"KAIE",                               key:"kaie",            type:null,       basis:"count", amount:2000,    live:"2026-03-05" },
+  { brand:"Haneul Clinic",                      key:"haneul",          type:"Monthly",  basis:"count", amount:1000,    live:"2026-04-30" },
+  { brand:"The Common Sister",                  key:"common sister",   type:"Monthly",  basis:"count", amount:200,     live:"2026-05-15" },
+];
+
+/* Brand (as shown in Quota_Tracker) → source_table (matches the usage data).
+   Built from the fallback list; brand strings are matched case/space/punctuation-insensitively.
+   When a NEW merchant is added to the sheet, add its source_table here (or add a
+   source_table column to the sheet and we can drop this map entirely). */
+function normBrand(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+const BRAND_MAP = {};
+QUOTAS_FALLBACK.forEach(q=>{ BRAND_MAP[normBrand(q.brand)] = q.key; });
+
+// Active quota config. Starts as the offline fallback; replaced by live Quota_Tracker rows on refresh.
+let QUOTAS = QUOTAS_FALLBACK;
+
+/* ---------- Embedded usage data (refresh via the panel above) ---------- */
+const EMBEDDED_CSV = `source_table,month,messages_sent,value_total,value_merchant
+30_bumbu,2024-07,3892,663300.0,663300
+30_bumbu,2024-08,3281,1003860.0,1003860
+30_bumbu,2024-09,3108,747780.0,747780
+30_bumbu,2024-10,1522,526020.0,526020
+30_bumbu,2024-11,1980,792000.0,792000
+30_bumbu,2024-12,1435,705540.0,705540
+30_bumbu,2025-01,1605,599940.0,599940
+30_bumbu,2025-02,1916,729960.0,729960
+30_bumbu,2025-03,1684,768240.0,768240
+30_bumbu,2025-04,1979,841500.0,841500
+30_bumbu,2025-05,1245,572880.0,572880
+30_bumbu,2025-06,1023,509520.0,509520
+30_bumbu,2025-07,349,229680.0,229680
+30_bumbu,2025-08,702,462660.0,462660
+30_bumbu,2025-09,1055,696300.0,696300
+30_bumbu,2025-10,935,616440.0,616440
+30_bumbu,2025-11,5058,3338280.0,3338280
+30_bumbu,2025-12,4397,2897400.0,2897400
+30_bumbu,2026-01,4734,3119820.0,1452660
+30_bumbu,2026-02,2479,1634160.0,345840
+30_bumbu,2026-03,4153,2740320.0,584760
+30_bumbu,2026-04,4096,2703360.0,581460
+30_bumbu,2026-05,2447,1615020.0,1026300
+30_bumbu,2026-06,126,83160.0,83160
+369_depot,2024-08,172,25080.0,25080
+369_depot,2024-09,421,70620.0,70620
+369_depot,2024-10,265,79860.0,79860
+369_depot,2024-11,4,1320.0,1320
+3_uncles,2024-08,399,50160.0,50160
+3_uncles,2024-09,480,108900.0,108900
+3_uncles,2024-10,272,116160.0,116160
+3_uncles,2024-11,509,272580.0,272580
+3_uncles,2024-12,707,407880.0,407880
+3_uncles,2025-01,1129,681120.0,681120
+3_uncles,2025-02,852,515460.0,515460
+3_uncles,2025-03,1300,755040.0,755040
+3_uncles,2025-04,764,466620.0,466620
+3_uncles,2025-05,1351,776820.0,776820
+3_uncles,2025-06,1482,874500.0,874500
+3_uncles,2025-07,1308,850080.0,850080
+3_uncles,2025-08,1430,927300.0,927300
+3_uncles,2025-09,510,330000.0,330000
+3_uncles,2025-10,453,288420.0,288420
+3_uncles,2025-11,3007,1970100.0,1970100
+3_uncles,2025-12,6512,4268880.0,589380
+3_uncles,2026-01,5448,3565320.0,368940
+3_uncles,2026-02,4017,2628780.0,275220
+3_uncles,2026-03,5823,3811500.0,269940
+3_uncles,2026-04,5250,3433320.0,1746525
+3_uncles,2026-05,6956,4581720.0,4118895
+3_uncles,2026-06,13,8580.0,8580
+3_uncles_sentul,2024-11,82,40920.0,40920
+3_uncles_sentul,2024-12,130,64680.0,64680
+3_uncles_sentul,2025-01,454,257400.0,257400
+3_uncles_sentul,2025-02,402,264660.0,264660
+3_uncles_sentul,2025-03,316,208560.0,208560
+3_uncles_sentul,2025-04,144,95040.0,95040
+3_uncles_sentul,2025-05,401,253440.0,253440
+3_uncles_sentul,2025-06,95,60060.0,60060
+3_uncles_sentul,2025-07,364,238920.0,238920
+3_uncles_sentul,2025-08,783,516120.0,516120
+3_uncles_sentul,2025-09,173,114180.0,114180
+3_uncles_sentul,2025-10,861,567600.0,567600
+3_uncles_sentul,2025-11,952,628320.0,628320
+3_uncles_sentul,2025-12,1865,1229580.0,1228920
+3_uncles_sentul,2026-01,1319,869880.0,77220
+3_uncles_sentul,2026-02,2546,1678380.0,49500
+3_uncles_sentul,2026-03,3299,2175360.0,64680
+3_uncles_sentul,2026-04,4595,3030060.0,1364055
+3_uncles_sentul,2026-05,1563,1030920.0,903705
+3_uncles_sentul,2026-06,5,3300.0,3300
+Dimitree Cafe,2025-11,982,842556.0,842556
+Dimitree Cafe,2025-12,8453,7252674.0,7252674
+Dimitree Cafe,2026-01,8208,7042464.0,7042464
+Dimitree Cafe,2026-02,6099,5232942.0,3125694
+Dimitree Cafe,2026-03,6566,5633628.0,2107248
+Dimitree Cafe,2026-04,4306,3694548.0,2619474
+Dimitree Cafe,2026-05,3234,2774772.0,1794936
+Dimitree Cafe,2026-06,16,13728.0,13728
+Hong Kong Bay,2026-01,545,467610.0,467610
+Hong Kong Bay,2026-02,1682,1443156.0,279708
+Hong Kong Bay,2026-03,2189,1878162.0,331188
+Hong Kong Bay,2026-04,4137,3549546.0,251394
+Hong Kong Bay,2026-05,3570,3063060.0,2259972
+Hong Kong Bay,2026-06,6,5148.0,5148
+KopiKing,2025-08,156,133848.0,133848
+KopiKing,2025-09,468,401544.0,401544
+KopiKing,2025-10,3226,2767908.0,2767908
+KopiKing,2025-11,3045,2612610.0,2612610
+KopiKing,2025-12,2056,1764048.0,1764048
+KopiKing,2026-01,1896,1626768.0,1626768
+KopiKing,2026-02,3481,2986698.0,685542
+KopiKing,2026-03,3551,3046758.0,117546
+KopiKing,2026-04,5762,4943796.0,1593091.5
+KopiKing,2026-05,3029,2598882.0,2388672
+KopiKing,2026-06,448,384384.0,384384
+Liuyishou,2024-12,95,37620.0,37620
+Liuyishou,2025-01,2,660.0,660
+Liuyishou,2025-04,2,1320.0,1320
+Morf Wellness,2025-12,5,4290.0,4290
+Morf Wellness,2026-01,325,278850.0,278850
+Morf Wellness,2026-02,521,447018.0,447018
+Morf Wellness,2026-03,1178,1010724.0,1010724
+Morf Wellness,2026-04,1180,1012440.0,1012440
+Natrabu Sentul,2025-08,54,46332.0,46332
+Natrabu Sentul,2025-09,752,645216.0,645216
+Natrabu Sentul,2025-10,1024,878592.0,878592
+Natrabu Sentul,2025-11,474,406692.0,406692
+Natrabu Sentul,2025-12,752,645216.0,645216
+Natrabu Sentul,2026-01,887,761046.0,761046
+Natrabu Sentul,2026-02,1177,1009866.0,66066
+Natrabu Sentul,2026-03,1730,1484340.0,93522
+Natrabu Sentul,2026-04,2616,2244528.0,1111324.5
+Rejuve dr lisna,2026-02,6072,5209776.0,5209776
+Rejuve dr lisna,2026-03,5773,4953234.0,38610
+Rejuve dr lisna,2026-04,3596,3085368.0,987772.5
+Rejuve dr lisna,2026-05,1488,1276704.0,1276704
+Sanpachi Sentul,2025-08,39,33462.0,33462
+Sanpachi Sentul,2025-09,747,640926.0,640926
+Sanpachi Sentul,2025-10,1027,881166.0,881166
+Sanpachi Sentul,2025-11,1261,1081938.0,1081938
+Sanpachi Sentul,2025-12,1499,1286142.0,1286142
+Sanpachi Sentul,2026-01,1468,1259544.0,1259544
+Sanpachi Sentul,2026-02,3003,2576574.0,200772
+Sanpachi Sentul,2026-03,4688,4022304.0,218790
+Sanpachi Sentul,2026-04,4925,4225650.0,1997853
+Sanpachi Sentul,2026-05,4909,4211922.0,2533030.5
+Sanpachi Sentul,2026-06,4,3432.0,3432
+SatuMakna,2025-08,4360,2877600.0,2877600
+SatuMakna,2025-09,689,454740.0,454740
+SatuMakna,2025-10,504,332640.0,332640
+SatuMakna,2025-11,394,260040.0,260040
+SatuMakna,2025-12,602,397320.0,397320
+SatuMakna,2026-01,264,174240.0,174240
+Simetri Coffee,2025-11,2180,1870440.0,1870440
+Simetri Coffee,2025-12,4911,4213638.0,4213638
+Simetri Coffee,2026-01,8151,6993558.0,6993558
+Simetri Coffee,2026-02,4863,4172454.0,973830
+Simetri Coffee,2026-03,8492,7286136.0,1613898
+Simetri Coffee,2026-04,8257,7084506.0,4403685
+Simetri Coffee,2026-05,8099,6948942.0,6060912
+Simetri Coffee,2026-06,98,84084.0,84084
+afro,2024-09,2064,1280400.0,1280400
+afro,2024-10,23,7260.0,7260
+afro,2024-11,3,1320.0,1320
+apollo wu,2025-03,6,3960.0,3960
+apollo wu,2025-04,39,25740.0,25740
+apollo wu,2025-05,2621,1723920.0,1723920
+apollo wu,2025-06,263,170280.0,170280
+apollo wu,2025-07,2608,1721280.0,1721280
+apollo wu,2025-08,1938,1279080.0,1279080
+apollo wu,2025-09,1288,850080.0,850080
+apollo wu,2025-10,2543,1678380.0,1678380
+apollo wu,2025-11,2614,1725240.0,1725240
+apollo wu,2025-12,6875,4537500.0,4537500
+apollo wu,2026-01,6494,4286040.0,4286040
+apollo wu,2026-02,4923,3249180.0,351120
+apollo wu,2026-03,8938,5899080.0,458040
+apollo wu,2026-04,7518,4961880.0,3795000
+apollo wu,2026-05,5835,3851100.0,3421275
+bbq chicken,2026-04,7320,6280560.0,6280560
+bbq chicken,2026-05,10032,8607456.0,8607456
+bbq chicken,2026-06,160,137280.0,137280
+bgp,2025-06,394,258060.0,258060
+bgp,2025-07,3106,2049960.0,2049960
+bgp,2025-08,4193,2767380.0,2767380
+bgp,2025-09,4316,2848560.0,2848560
+bgp,2025-10,9258,6110280.0,6110280
+bgp,2025-11,7850,5181000.0,5181000
+bgp,2025-12,8794,5804040.0,5804040
+bgp,2026-01,535,353100.0,353100
+blueprint,2026-03,16,13728.0,13728
+blueprint,2026-04,2329,1998282.0,1998282
+blueprint,2026-05,2784,2388672.0,2388672
+blueprint,2026-06,32,27456.0,27456
+boga,2024-09,30,0.0,0
+boga,2024-10,525,0.0,0
+boga,2024-11,1137,0.0,0
+boga,2024-12,1140,0.0,0
+boga,2025-01,1349,0.0,0
+boga,2025-02,1531,0.0,0
+boga,2025-03,733,0.0,0
+boga,2025-04,765,0.0,0
+boga,2025-05,753,0.0,0
+boga,2025-06,201,0.0,0
+boga,2025-07,188,0.0,0
+boga,2025-08,148,0.0,0
+boga,2025-09,159,0.0,0
+boga,2025-10,5774,0.0,0
+boga,2025-11,12394,0.0,0
+boga,2025-12,25044,0.0,0
+boga,2026-01,25892,0.0,0
+boga,2026-02,12431,0.0,0
+boga,2026-03,21359,0.0,0
+boga,2026-04,25724,0.0,0
+boga,2026-05,36786,0.0,0
+boga,2026-06,188,0.0,0
+cartel,2024-12,10,0.0,0
+cartel,2025-01,582,0.0,0
+cartel,2025-02,1065,0.0,0
+cartel,2025-03,4331,0.0,0
+cat_fiddle,2024-06,1970,193380.0,193380
+cat_fiddle,2024-07,2509,510180.0,510180
+cat_fiddle,2024-08,1770,266640.0,266640
+cat_fiddle,2024-09,1859,873840.0,873840
+cat_fiddle,2024-10,803,269280.0,269280
+cat_fiddle,2024-11,664,252120.0,252120
+cat_fiddle,2024-12,24,15840.0,15840
+cat_fiddle,2025-01,159,64020.0,64020
+cat_fiddle,2025-02,402,157740.0,157740
+cat_fiddle,2025-03,546,225720.0,225720
+cat_fiddle,2025-04,443,190080.0,190080
+cat_fiddle,2025-05,480,201300.0,201300
+cat_fiddle,2025-06,493,201960.0,201960
+cat_fiddle,2025-07,391,258060.0,258060
+cat_fiddle,2025-08,459,302940.0,302940
+cat_fiddle,2025-09,395,260700.0,260700
+cat_fiddle,2025-10,352,232320.0,232320
+cat_fiddle,2025-11,2641,1743060.0,1743060
+cat_fiddle,2025-12,2585,1698840.0,175560
+cat_fiddle,2026-01,1904,1253340.0,445500
+cat_fiddle,2026-02,1096,722040.0,116820
+cat_fiddle,2026-03,898,591360.0,92400
+cat_fiddle,2026-04,511,335940.0,123420
+cat_fiddle,2026-05,950,627000.0,374220
+cat_fiddle,2026-06,22,14520.0,14520
+common sister,2026-05,81,69498.0,69498
+common sister,2026-06,13,11154.0,11154
+dcost,2024-07,14318,1226433.0,1226433
+dcost,2024-08,104191,14321177.0,14321177
+dcost,2024-09,88777,18475912.0,18475912
+dcost,2024-10,71061,17150874.0,17150874
+dcost,2024-11,127126,31052580.0,31052580
+dcost,2024-12,264292,66255098.0,66255098
+dcost,2025-01,202298,52985530.0,52985530
+dcost,2025-02,153820,34996780.0,34996780
+dcost,2025-03,114232,31361720.0,31361720
+dcost,2025-04,101396,27359956.0,27359956
+dcost,2025-05,155642,53175278.0,53175278
+dcost,2025-06,74679,23712104.0,23712104
+dcost,2025-07,32156,17123158.0,17123158
+dcost,2025-08,46274,24654448.0,24654448
+dcost,2025-09,46544,24780769.0,24780769
+dcost,2025-10,54334,28952027.0,28952027
+dcost,2025-11,51974,27702142.0,27702142
+dcost,2025-12,91572,48765236.0,19721000
+dcost,2026-01,70401,37491220.0,16841201
+dcost,2026-02,70425,37508276.0,14808339
+dcost,2026-03,100768,53651780.0,20708649
+dcost,2026-04,110075,58610279.0,15284841
+dcost,2026-05,237475,126435595.0,94451331
+dcost,2026-06,1803,960466.0,960466
+dl_beauty,2024-07,17319,3270960.0,3270960
+dl_beauty,2024-08,33291,6795360.0,6795360
+dl_beauty,2024-09,2812,1577400.0,1577400
+dl_beauty,2024-10,25,11880.0,11880
+donburi_ichiya,2024-05,290,34320.0,34320
+donburi_ichiya,2024-06,1384,324060.0,324060
+donburi_ichiya,2024-07,296,33660.0,33660
+donburi_ichiya,2024-08,262,38940.0,38940
+donburi_ichiya,2024-09,59,11880.0,11880
+donburi_ichiya,2024-10,4,1320.0,1320
+donburi_ichiya,2024-11,2,660.0,660
+donburi_ichiya,2024-12,2,660.0,660
+donburi_ichiya,2025-01,12,3960.0,3960
+donburi_ichiya,2025-02,2,660.0,660
+edogawa,2025-04,126,83160.0,83160
+edogawa,2025-05,584,385440.0,385440
+edogawa,2025-06,613,404580.0,404580
+edogawa,2025-07,2030,1339800.0,1339800
+edogawa,2025-08,2201,1452660.0,1452660
+edogawa,2025-09,4233,2793780.0,2793780
+edogawa,2025-10,6768,4466880.0,4466880
+edogawa,2025-11,6586,4346760.0,4346760
+edogawa,2025-12,7418,4895880.0,4895880
+edogawa,2026-01,4811,3175260.0,3175260
+edogawa,2026-02,3478,2295480.0,431640
+edogawa,2026-03,6150,4059000.0,886710
+edogawa,2026-04,7176,4736160.0,2269080
+edogawa,2026-05,1990,1313400.0,1251690
+edogawa,2026-06,13,8580.0,8580
+farm_girl,2024-07,683,76560.0,76560
+farm_girl,2024-08,2318,350460.0,350460
+farm_girl,2024-09,1517,504240.0,504240
+farm_girl,2024-10,736,290400.0,290400
+farm_girl,2024-11,339,151140.0,151140
+farm_girl,2024-12,205,107580.0,107580
+farm_girl,2025-01,3,1980.0,1980
+flash_coffee,2025-04,733,483780.0,483780
+flash_coffee,2025-05,5915,3903900.0,3903900
+flash_coffee,2025-06,7595,5012700.0,5012700
+flash_coffee,2025-07,4616,3046560.0,3046560
+flash_coffee,2025-08,1717,1133220.0,1133220
+flash_coffee,2025-09,6,3960.0,3960
+haneul,2026-04,25,21450.0,21450
+haneul,2026-05,552,473616.0,473616
+haneul,2026-06,4,3432.0,3432
+izuka,2024-03,1818,341880.0,341880
+izuka,2024-04,2131,343860.0,343860
+izuka,2024-05,7343,1236840.0,1236840
+izuka,2024-06,7596,1794540.0,1794540
+izuka,2024-07,5870,1015080.0,1015080
+izuka,2024-08,3048,541200.0,541200
+izuka,2024-09,8053,2732400.0,2732400
+izuka,2024-10,7117,3068340.0,3068340
+izuka,2024-11,948,558360.0,558360
+izuka,2024-12,801,479820.0,479820
+izuka,2025-01,780,396000.0,396000
+izuka,2025-02,300,178860.0,178860
+izuka,2025-03,269,159720.0,159720
+izuka,2025-04,123,71940.0,71940
+izuka,2025-05,4,660.0,660
+junsei,2024-08,45,1320.0,1320
+junsei,2024-09,1730,1067880.0,1067880
+junsei,2024-10,1241,793980.0,793980
+junsei,2024-11,141,69300.0,69300
+junsei,2024-12,165,81180.0,81180
+junsei,2025-01,192,81180.0,81180
+junsei,2025-02,305,126720.0,126720
+junsei,2025-03,432,250140.0,250140
+junsei,2025-04,38,15180.0,15180
+junsei,2025-05,193,79200.0,79200
+junsei,2025-06,254,106260.0,106260
+junsei,2025-07,51,33660.0,33660
+kahi,2024-09,3,1320.0,1320
+kahi,2024-10,3,1980.0,1980
+kahi,2024-11,11,6600.0,6600
+kahi,2024-12,4,2640.0,2640
+kahi,2025-01,1,0.0,0
+kahi,2025-02,336,221760.0,221760
+kahi,2025-03,832,543180.0,543180
+kahi,2025-04,11,6600.0,6600
+kahi,2025-05,24,13200.0,13200
+kahi,2025-06,1044,679800.0,679800
+kahi,2025-07,699,461340.0,461340
+kahi,2025-08,2795,1844700.0,1844700
+kahi,2025-09,1500,990000.0,990000
+kahi,2025-10,3039,2005740.0,2005740
+kahi,2025-11,3453,2278980.0,2278980
+kahi,2025-12,3746,2472360.0,2472360
+kahi,2026-01,2285,1508100.0,1508100
+kahi,2026-02,3665,2418900.0,2418900
+kahi,2026-03,5259,3470940.0,3059100
+kahi,2026-04,2885,1904100.0,1904100
+kahi,2026-05,4403,2905980.0,2905980
+kaie,2026-02,19,16302.0,16302
+kaie,2026-03,1336,1146288.0,48906
+kaie,2026-04,1410,1209780.0,663663
+kaie,2026-05,813,697554.0,478120.5
+kaie,2026-06,7,6006.0,6006
+kaminori,2024-11,95,50160.0,50160
+kaminori,2024-12,252,110220.0,110220
+kaminori,2025-01,147,60720.0,60720
+kaminori,2025-02,293,107580.0,107580
+kaminori,2025-03,220,145200.0,145200
+kaminori,2025-04,130,85800.0,85800
+kaminori,2025-05,1726,1139160.0,1139160
+kaminori,2025-06,49,32340.0,32340
+kaminori,2025-07,2,1320.0,1320
+kamu_kunafa,2024-09,651,169620.0,169620
+kamu_kunafa,2024-10,1106,339900.0,339900
+kamu_kunafa,2024-11,822,287100.0,287100
+kamu_kunafa,2024-12,736,258060.0,258060
+kamu_kunafa,2025-01,605,221760.0,221760
+kamu_kunafa,2025-02,309,165660.0,165660
+kamu_kunafa,2025-03,140,89100.0,89100
+kamu_kunafa,2025-04,191,88440.0,88440
+kamu_kunafa,2025-05,71,41580.0,41580
+kamu_kunafa,2025-06,65,29700.0,29700
+kamu_kunafa,2025-07,20,13200.0,13200
+kamu_kunafa,2025-08,2,1320.0,1320
+kanza,2024-03,253,39600.0,39600
+kanza,2024-04,553,74400.0,74400
+kanza,2024-05,780,210600.0,210600
+kanza,2024-06,1653,459600.0,459600
+kokumi,2024-06,33,3300.0,3300
+kokumi,2024-07,398,67320.0,67320
+kokumi,2024-08,116,17160.0,17160
+kokumi,2024-09,225,54780.0,54780
+kokumi,2024-10,105,40920.0,40920
+kokumi,2024-11,85,42240.0,42240
+kokumi,2024-12,48,24420.0,24420
+kokumi,2025-01,19,11880.0,11880
+kokumi,2025-02,13,7920.0,7920
+kokumi,2025-03,46,24420.0,24420
+kokumi,2025-04,25,12540.0,12540
+kokumi,2025-05,28,15840.0,15840
+kokumi,2025-06,19,11220.0,11220
+kopiluvium,2025-07,31,20460.0,20460
+kopiluvium,2025-08,412,271920.0,271920
+kopiluvium,2025-09,1537,1014420.0,1014420
+kopiluvium,2025-10,1297,856020.0,856020
+kopiluvium,2025-11,125,82500.0,82500
+kopiluvium,2025-12,6,3960.0,3960
+lamian_palace,2023-12,7210,1264560.0,1264560
+lamian_palace,2024-01,16847,2675640.0,2675640
+lamian_palace,2024-02,27278,4136880.0,4136880
+lamian_palace,2024-03,53234,11027940.0,11027940
+lamian_palace,2024-04,36156,5070780.0,5070780
+lamian_palace,2024-05,45638,8519280.0,8519280
+lamian_palace,2024-06,39288,8215680.0,8215680
+lamian_palace,2024-07,32088,7454700.0,7454700
+lamian_palace,2024-08,24716,6038340.0,6038340
+lamian_palace,2024-09,66357,27883680.0,27883680
+lamian_palace,2024-10,5557,2999040.0,2999040
+lamian_palace,2024-11,6029,3663000.0,3663000
+lamian_palace,2024-12,9785,5825160.0,5825160
+lamian_palace,2025-01,10166,4682700.0,4682700
+lamian_palace,2025-02,7328,4169220.0,4169220
+lamian_palace,2025-03,4379,2108700.0,2108700
+lamian_palace,2025-04,755,381480.0,381480
+lamian_palace,2025-05,18,660.0,660
+liang_sandwich,2024-07,1481,227040.0,227040
+liang_sandwich,2024-08,253,53460.0,53460
+liang_sandwich,2024-09,69,21780.0,21780
+liang_sandwich,2024-10,33,11220.0,11220
+liang_sandwich,2024-11,36,13200.0,13200
+liang_sandwich,2024-12,53,20460.0,20460
+liang_sandwich,2025-01,19,7260.0,7260
+liang_sandwich,2025-02,381,139920.0,139920
+liang_sandwich,2025-03,804,340560.0,340560
+liang_sandwich,2025-04,318,139260.0,139260
+liang_sandwich,2025-05,770,328680.0,328680
+liang_sandwich,2025-06,640,260700.0,260700
+liang_sandwich,2025-07,303,199980.0,199980
+liang_sandwich,2025-08,248,163680.0,163680
+liang_sandwich,2025-09,156,102960.0,102960
+liang_sandwich,2025-10,223,147180.0,147180
+liang_sandwich,2025-11,1834,1210440.0,1210440
+liang_sandwich,2025-12,2591,1709400.0,1709400
+liang_sandwich,2026-01,1570,1034880.0,508860
+liang_sandwich,2026-02,1723,1135200.0,70620
+liang_sandwich,2026-03,1312,864600.0,86460
+liang_sandwich,2026-04,1286,848100.0,149820
+liang_sandwich,2026-05,724,476520.0,336600
+liang_sandwich,2026-06,12,7920.0,7920
+lighthouse,2025-01,14,0.0,0
+lighthouse,2025-02,1292,836880.0,836880
+lighthouse,2025-03,3689,2433420.0,2433420
+lighthouse,2025-04,4175,2755500.0,2755500
+lighthouse,2025-05,4235,2783880.0,2783880
+lighthouse,2025-06,2181,1431540.0,1431540
+lighthouse,2025-07,4727,3119820.0,3119820
+lighthouse,2025-08,2595,1712700.0,1712700
+lighthouse,2025-09,4047,2671020.0,2671020
+lighthouse,2025-10,9692,6396720.0,6396720
+lighthouse,2025-11,7542,4977720.0,4977720
+lighthouse,2025-12,5602,3697320.0,3697320
+lighthouse,2026-01,7701,5082660.0,5082660
+lighthouse,2026-02,7557,4987620.0,1680360
+lighthouse,2026-03,10092,6660720.0,1516020
+lighthouse,2026-04,7042,4645740.0,2969670
+lighthouse,2026-05,12889,8506080.0,7589010
+lighthouse,2026-06,446,294360.0,294360
+lucuflix,2025-02,2,1000.0,1000
+lucuflix,2025-03,3958,1979000.0,1979000
+lucuflix,2025-04,1407,703500.0,703500
+lucuflix,2025-05,3381,1690500.0,1690500
+lucuflix,2025-06,2,1000.0,1000
+lucuflix,2025-07,2346,1173000.0,1173000
+lucuflix,2025-08,5789,2894500.0,2894500
+lucuflix,2025-09,1,500.0,500
+maystar,2024-10,28,10200.0,10200
+maystar,2024-11,742,238200.0,238200
+maystar,2024-12,878,507600.0,507600
+maystar,2025-01,1936,1003200.0,1003200
+maystar,2025-02,1295,704400.0,704400
+maystar,2025-03,977,511800.0,511800
+maystar,2025-04,1088,527400.0,527400
+maystar,2025-05,1015,538200.0,538200
+maystar,2025-06,2466,1363800.0,1363800
+maystar,2025-07,3304,1924800.0,1924800
+maystar,2025-08,306,162000.0,162000
+minuman,2025-03,38,25080.0,25080
+minuman,2025-04,198,130680.0,130680
+minuman,2025-05,2985,1970100.0,1970100
+minuman,2025-06,2398,1582680.0,1582680
+minuman,2025-07,3334,2200440.0,2200440
+minuman,2025-08,5431,3584460.0,3584460
+minuman,2025-09,5815,3837900.0,3837900
+minuman,2025-10,928,612480.0,612480
+minuman,2025-11,122,80520.0,80520
+murame,2023-11,4,660.0,660
+murame,2023-12,3586,751080.0,751080
+murame,2024-01,2874,559020.0,559020
+murame,2024-02,4237,879780.0,879780
+murame,2024-03,10163,1507440.0,1507440
+murame,2024-04,23850,2769360.0,2769360
+murame,2024-05,45945,5600760.0,5600760
+murame,2024-06,53509,7301580.0,7301580
+murame,2024-07,44716,6765660.0,6765660
+murame,2024-08,22491,2865720.0,2865720
+murame,2024-09,7360,1546380.0,1546380
+murame,2024-10,180,104940.0,104940
+murame,2024-11,1201,740520.0,740520
+murame,2024-12,1488,923340.0,923340
+murame,2025-01,503,295020.0,295020
+murame,2025-02,415,236280.0,236280
+murame,2025-03,508,306900.0,306900
+murame,2025-04,452,263340.0,263340
+murame,2025-05,4686,2031480.0,2031480
+murame,2025-06,2989,1296900.0,1296900
+murame,2025-07,453,296340.0,296340
+murame,2025-08,105,67320.0,67320
+murame,2025-09,0,0.0,0
+murame,2025-10,0,0.0,0
+murame,2025-12,0,0.0,0
+murame,2026-01,0,0.0,0
+murame,2026-02,0,0.0,0
+murame,2026-03,0,0.0,0
+murame,2026-04,0,0.0,0
+murame,2026-05,0,0.0,0
+namo,2024-05,37,1320.0,1320
+namo,2024-06,307,50820.0,50820
+namo,2024-07,200,54120.0,54120
+niu_da_ge,2024-08,92,9240.0,9240
+niu_da_ge,2024-09,271,48180.0,48180
+niu_da_ge,2024-10,541,188100.0,188100
+niu_da_ge,2024-11,635,297000.0,297000
+niu_da_ge,2024-12,735,372240.0,372240
+niu_da_ge,2025-01,521,275220.0,275220
+niu_da_ge,2025-02,617,277860.0,277860
+niu_da_ge,2025-03,764,354420.0,354420
+niu_da_ge,2025-04,1113,500280.0,500280
+niu_da_ge,2025-05,565,275220.0,275220
+niu_da_ge,2025-06,96,58740.0,58740
+niu_da_ge,2025-07,4,0.0,0
+nonnabona,2024-10,424,206580.0,206580
+nonnabona,2024-11,2082,971520.0,971520
+nonnabona,2024-12,2254,1040820.0,1040820
+nonnabona,2025-01,2150,997260.0,997260
+nonnabona,2025-02,4697,2371380.0,2371380
+nonnabona,2025-03,4277,1725900.0,1725900
+nonnabona,2025-04,2226,896940.0,896940
+nonnabona,2025-05,2181,773520.0,773520
+nonnabona,2025-06,1787,745800.0,745800
+nonnabona,2025-07,1166,751740.0,751740
+nonnabona,2025-08,886,575520.0,575520
+nonnabona,2025-09,1165,752400.0,752400
+nonnabona,2025-10,3352,2185260.0,2185260
+nonnabona,2025-11,2895,1874400.0,1874400
+nonnabona,2025-12,4217,2746260.0,2746260
+nonnabona,2026-01,2520,1604460.0,405240
+nonnabona,2026-02,4246,2755500.0,367620
+nonnabona,2026-03,3933,2556840.0,346500
+nonnabona,2026-04,4377,2853840.0,762795
+nonnabona,2026-05,2744,1805760.0,749760
+nonnabona,2026-06,12,7920.0,7920
+oz_lezzat,2024-08,108,15840.0,15840
+oz_lezzat,2024-09,533,68640.0,68640
+oz_lezzat,2024-10,346,93720.0,93720
+oz_lezzat,2024-11,255,121440.0,121440
+oz_lezzat,2024-12,113,41580.0,41580
+oz_lezzat,2025-01,76,33000.0,33000
+oz_lezzat,2025-02,144,70620.0,70620
+oz_lezzat,2025-03,67,36960.0,36960
+oz_lezzat,2025-04,175,76560.0,76560
+oz_lezzat,2025-05,181,83160.0,83160
+oz_lezzat,2025-06,261,125400.0,125400
+oz_lezzat,2025-07,87,57420.0,57420
+oz_lezzat,2025-08,1529,1006500.0,1006500
+oz_lezzat,2025-09,53,34980.0,34980
+oz_lezzat,2025-10,559,368940.0,368940
+oz_lezzat,2025-11,530,349800.0,349800
+oz_lezzat,2025-12,594,391380.0,8580
+oz_lezzat,2026-01,21,13860.0,13860
+oz_lezzat,2026-02,11,7260.0,7260
+oz_lezzat,2026-03,6,3960.0,3960
+oz_lezzat,2026-04,2,1320.0,1320
+pepr,2024-12,529,235620.0,235620
+pepr,2025-01,865,428340.0,428340
+pepr,2025-02,1295,803880.0,803880
+pepr,2025-03,1436,934560.0,934560
+pepr,2025-04,1288,836220.0,836220
+pepr,2025-05,1872,1221000.0,1221000
+pepr,2025-06,981,622380.0,622380
+pepr,2025-07,2213,1460580.0,1460580
+pepr,2025-08,4398,2902680.0,2902680
+pepr,2025-09,3534,2332440.0,2332440
+pepr,2025-10,5449,3596340.0,3596340
+pepr,2025-11,6858,4526280.0,4526280
+pepr,2025-12,7768,5126880.0,5126880
+pepr,2026-01,8000,5280000.0,5280000
+pepr,2026-02,6893,4549380.0,1023660
+pepr,2026-03,6436,4247760.0,1378080
+pepr,2026-04,9369,6183540.0,5151960
+pepr,2026-05,9321,6151860.0,5662800
+pepr,2026-06,120,79200.0,79200
+publika,2024-09,10,0.0,0
+publika,2024-10,439,118800.0,118800
+publika,2024-11,760,293040.0,293040
+publika,2024-12,317,161700.0,161700
+publika,2025-01,143,63360.0,63360
+publika,2025-02,152,54780.0,54780
+publika,2025-03,157,58740.0,58740
+publika,2025-04,223,79860.0,79860
+publika,2025-05,162,67980.0,67980
+publika,2025-06,1322,811800.0,811800
+publika,2025-07,1135,749100.0,749100
+publika,2025-08,1291,852060.0,852060
+publika,2025-09,1845,1217700.0,1217700
+publika,2025-10,2756,1818960.0,1818960
+publika,2025-11,3604,2378640.0,2378640
+publika,2025-12,3429,2263140.0,2263140
+publika,2026-01,3206,2115960.0,341220
+publika,2026-02,6015,3969900.0,737880
+publika,2026-03,5783,3816780.0,1718640
+publika,2026-04,4568,3014880.0,1688940
+publika,2026-05,4265,2814900.0,2133120
+publika,2026-06,21,13860.0,13860
+sei sapi lamalera,2024-08,100,17160.0,17160
+sei sapi lamalera,2024-09,985,310860.0,310860
+sei sapi lamalera,2024-10,218,143880.0,143880
+sei sapi lamalera,2024-11,202,95040.0,95040
+sei sapi lamalera,2024-12,702,264000.0,264000
+sei sapi lamalera,2025-01,538,198660.0,198660
+sei sapi lamalera,2025-02,590,285120.0,285120
+sei sapi lamalera,2025-03,1070,685080.0,685080
+sei sapi lamalera,2025-04,422,277200.0,277200
+sei sapi lamalera,2025-07,373,246180.0,246180
+sei sapi lamalera,2025-08,2380,1570800.0,1570800
+sei sapi lamalera,2025-09,1024,675180.0,675180
+sei sapi lamalera,2025-10,2955,1948980.0,1948980
+sei sapi lamalera,2025-11,2713,1790580.0,1790580
+sei sapi lamalera,2025-12,4325,2853180.0,2853180
+sei sapi lamalera,2026-01,741,489060.0,489060
+seroeni,2024-08,1032,212520.0,212520
+seroeni,2024-09,1085,276540.0,276540
+seroeni,2024-10,1388,510180.0,510180
+seroeni,2024-11,2750,1449360.0,1449360
+seroeni,2024-12,2213,1015740.0,1015740
+seroeni,2025-01,1691,842820.0,842820
+seroeni,2025-02,3892,2260500.0,2260500
+seroeni,2025-03,1374,706200.0,706200
+seroeni,2025-04,757,419760.0,419760
+seroeni,2025-05,1463,766920.0,766920
+seroeni,2025-06,1607,792000.0,792000
+seroeni,2025-07,1584,1006500.0,1006500
+seroeni,2025-08,1429,919380.0,919380
+seroeni,2025-09,404,249480.0,249480
+seroeni,2025-10,1510,966900.0,966900
+seroeni,2025-11,3714,2419560.0,2419560
+seroeni,2025-12,7870,4268220.0,2951520
+seroeni,2026-01,6495,4237860.0,1033560
+seroeni,2026-02,3381,2164140.0,193380
+seroeni,2026-03,5297,3410880.0,170280
+seroeni,2026-04,9186,6023820.0,2633400
+seroeni,2026-05,4475,2951520.0,2517405
+seroeni,2026-06,5,3300.0,3300
+seroeni_sentul,2024-11,152,69960.0,69960
+seroeni_sentul,2024-12,472,223080.0,223080
+seroeni_sentul,2025-01,861,468600.0,468600
+seroeni_sentul,2025-02,889,580800.0,580800
+seroeni_sentul,2025-03,632,407220.0,407220
+seroeni_sentul,2025-04,610,400620.0,400620
+seroeni_sentul,2025-05,1417,918060.0,918060
+seroeni_sentul,2025-06,797,504240.0,504240
+seroeni_sentul,2025-07,2398,1582020.0,1582020
+seroeni_sentul,2025-08,1872,1234860.0,1234860
+seroeni_sentul,2025-09,1766,1164900.0,1164900
+seroeni_sentul,2025-10,3078,2031480.0,2031480
+seroeni_sentul,2025-11,2332,1539120.0,1539120
+seroeni_sentul,2025-12,6611,4361940.0,1453980
+seroeni_sentul,2026-01,5973,3940860.0,285120
+seroeni_sentul,2026-02,3769,2487540.0,257400
+seroeni_sentul,2026-03,5514,3637920.0,287100
+seroeni_sentul,2026-04,10200,6731340.0,2794440
+seroeni_sentul,2026-05,4987,3290760.0,2843280
+seroeni_sentul,2026-06,12,7920.0,7920
+seteduh_kopi,2024-05,478,60060.0,60060
+seteduh_kopi,2024-06,1462,244860.0,244860
+seteduh_kopi,2024-07,1724,217800.0,217800
+seteduh_kopi,2024-08,1436,196680.0,196680
+seteduh_kopi,2024-09,725,172920.0,172920
+seteduh_kopi,2024-10,430,191400.0,191400
+seteduh_kopi,2024-11,567,190740.0,190740
+seteduh_kopi,2024-12,539,177540.0,177540
+seteduh_kopi,2025-01,545,267960.0,267960
+seteduh_kopi,2025-02,687,351780.0,351780
+seteduh_kopi,2025-03,570,282480.0,282480
+seteduh_kopi,2025-04,13,7260.0,7260
+sharetea,2024-10,29,9900.0,9900
+sharetea,2024-11,365,156420.0,156420
+sharetea,2024-12,3696,1610400.0,1610400
+sharetea,2025-01,2303,1017720.0,1017720
+sharetea,2025-02,1937,1201860.0,1201860
+sharetea,2025-03,1837,1212420.0,1212420
+sharetea,2025-04,1420,937200.0,937200
+sharetea,2025-05,1818,1199880.0,1199880
+sharetea,2025-06,2081,1373460.0,1373460
+sharetea,2025-07,1244,821040.0,821040
+sharetea,2025-08,1771,1168860.0,1168860
+sharetea,2025-09,1348,889680.0,889680
+sharetea,2025-10,2977,1964820.0,1964820
+sharetea,2025-11,8739,5767740.0,5767740
+sharetea,2025-12,12267,8096220.0,8096220
+sharetea,2026-01,6182,4080120.0,4080120
+sharetea,2026-02,3073,2028180.0,900240
+sharetea,2026-03,4439,2929740.0,867240
+sharetea,2026-04,5747,3793020.0,923340
+sharetea,2026-05,6111,4033260.0,2834700
+sharetea,2026-06,102,67320.0,67320
+shinimari,2026-05,1307,1114542.0,1114542
+shinimari,2026-06,40,34320.0,34320
+shu_gelato,2024-11,106,42900.0,42900
+shu_gelato,2024-12,286,130020.0,130020
+shu_gelato,2025-01,309,152460.0,152460
+shu_gelato,2025-02,179,92400.0,92400
+shu_gelato,2025-03,206,135960.0,135960
+shu_gelato,2025-04,79,52140.0,52140
+shu_gelato,2025-05,73,48180.0,48180
+shu_gelato,2025-06,109,71940.0,71940
+shu_gelato,2025-07,60,39600.0,39600
+shu_gelato,2025-08,40,26400.0,26400
+shu_gelato,2025-09,45,29700.0,29700
+shu_gelato,2025-10,73,48180.0,48180
+shu_gelato,2025-11,831,548460.0,548460
+shu_gelato,2025-12,1345,887700.0,887700
+shu_gelato,2026-01,1302,859320.0,859320
+shu_gelato,2026-02,1023,675180.0,50820
+shu_gelato,2026-03,1508,995280.0,292380
+sookdal,2024-06,15,0.0,0
+sookdal,2024-07,129,52800.0,52800
+sookdal,2024-08,25,8580.0,8580
+sookdal,2024-09,22,14520.0,14520
+sookdal,2024-10,39,24420.0,24420
+sookdal,2024-11,52,33000.0,33000
+sookdal,2024-12,95,58080.0,58080
+sookdal,2025-01,72,46860.0,46860
+sookdal,2025-02,82,48840.0,48840
+sookdal,2025-03,70,42900.0,42900
+sookdal,2025-04,54,34980.0,34980
+sookdal,2025-05,62,40260.0,40260
+sookdal,2025-06,55,33000.0,33000
+sookdal,2025-07,112,73920.0,73920
+sookdal,2025-08,75,48840.0,48840
+sookdal,2025-09,1,660.0,660
+stube,2025-03,11,7260.0,7260
+stube,2025-04,2066,1363560.0,1363560
+stube,2025-05,4118,2703360.0,2703360
+stube,2025-06,4657,3047880.0,3047880
+stube,2025-07,3701,2442660.0,2442660
+stube,2025-08,7609,5021940.0,5021940
+stube,2025-09,8522,5624520.0,5624520
+stube,2025-10,9008,5945280.0,5945280
+stube,2025-11,9788,6460080.0,6460080
+stube,2025-12,22906,15117960.0,15117960
+stube,2026-01,17869,11793540.0,11793540
+stube,2026-02,12008,7925280.0,1494900
+stube,2026-03,11530,7609800.0,1463880
+stube,2026-04,16891,11148060.0,8368140
+stube,2026-05,15031,9920460.0,8863635
+stube,2026-06,80,52800.0,52800
+sukinabe,2024-08,61,9240.0,9240
+sukinabe,2024-09,48,9900.0,9900
+sukinabe,2024-10,20,7260.0,7260
+sukinabe,2024-11,18,9240.0,9240
+sukinabe,2024-12,4,2640.0,2640
+sukinabe,2025-01,12,7260.0,7260
+sukinabe,2025-02,3,1980.0,1980
+sukinabe,2025-03,12,7260.0,7260
+sukinabe,2025-04,0,0.0,0
+sukinabe,2025-06,5,3300.0,3300
+surface,2024-08,16,1980.0,1980
+surface,2024-09,33,5940.0,5940
+surface,2024-10,217,89760.0,89760
+surface,2024-11,1025,368940.0,368940
+surface,2024-12,99,39600.0,39600
+surface,2025-01,336,149160.0,149160
+surface,2025-02,696,346500.0,346500
+surface,2025-03,3118,1638120.0,1638120
+surface,2025-04,1458,823680.0,823680
+surface,2025-05,1603,899580.0,899580
+surface,2025-06,2245,1318020.0,1318020
+surface,2025-07,4308,2768700.0,2768700
+surface,2025-08,3014,1941720.0,1941720
+surface,2025-09,4722,3059100.0,3059100
+surface,2025-10,17443,11324940.0,11324940
+surface,2025-11,14441,9435360.0,9435360
+surface,2025-12,16987,11009460.0,11009460
+surface,2026-01,12313,8030220.0,1382700
+surface,2026-02,8322,5421240.0,2216940
+surface,2026-03,11216,7034280.0,1136520
+surface,2026-04,14591,9309960.0,7637025
+surface,2026-05,11022,7250100.0,6363555
+surface,2026-06,17,11220.0,11220
+tanyu,2024-06,761,75240.0,75240
+tanyu,2024-07,2483,605880.0,605880
+tanyu,2024-08,2169,660000.0,660000
+tanyu,2024-09,908,190080.0,190080
+tanyu,2024-10,1718,557040.0,557040
+tanyu,2024-11,706,462660.0,462660
+tanyu,2024-12,11,7260.0,7260
+tanyu,2025-01,110,40920.0,40920
+tanyu,2025-02,370,154440.0,154440
+tanyu,2025-03,743,335940.0,335940
+tanyu,2025-04,437,180180.0,180180
+tanyu,2025-05,349,143880.0,143880
+tanyu,2025-06,342,141900.0,141900
+tanyu,2025-07,131,86460.0,86460
+tanyu,2025-08,683,450120.0,450120
+tanyu,2025-09,789,520740.0,520740
+tanyu,2025-10,541,355740.0,355740
+tanyu,2025-11,3357,2215620.0,2215620
+tanyu,2025-12,6083,4012800.0,4012800
+tanyu,2026-01,3763,2473020.0,867900
+tanyu,2026-02,4157,2731740.0,854700
+tanyu,2026-03,5016,3301980.0,518100
+tanyu,2026-04,4256,2806980.0,694980
+tanyu,2026-05,4482,2957460.0,2282115
+tanyu,2026-06,104,68640.0,68640
+temu,2024-10,1330,471900.0,471900
+temu,2024-11,475,211860.0,211860
+temu,2024-12,274,122760.0,122760
+temu,2025-01,2869,1226280.0,1226280
+temu,2025-02,894,394680.0,394680
+temu,2025-03,1,0.0,0
+thaistreet,2024-09,116,14520.0,14520
+thaistreet,2024-10,3206,1615680.0,1615680
+thaistreet,2024-11,5330,2492820.0,2492820
+thaistreet,2024-12,4025,1793880.0,1793880
+thaistreet,2025-01,1941,1051380.0,1051380
+thaistreet,2025-02,2603,1228260.0,1228260
+thaistreet,2025-03,119,70620.0,70620
+the_edge,2024-08,11,660.0,660
+the_edge,2024-09,2,0.0,0
+the_edge,2025-02,0,0.0,0
+vilo,2024-09,0,0.0,0
+vilo,2024-10,18,5280.0,5280
+vilo,2024-11,15725,7710780.0,7710780
+vilo,2024-12,26969,13186140.0,13186140
+vilo,2025-01,23690,13633620.0,13633620
+vilo,2025-02,32310,17889300.0,17889300
+vilo,2025-03,35734,14613720.0,14613720
+vilo,2025-04,36332,13485120.0,13485120
+vilo,2025-05,26453,12407340.0,12407340
+vilo,2025-06,23497,13852740.0,13852740
+vilo,2025-07,22827,13846140.0,13846140
+vilo,2025-08,26941,15028860.0,15028860
+vilo,2025-09,16833,10791000.0,10791000
+vilo,2025-10,16258,10458360.0,10458360
+vilo,2025-11,20776,13433640.0,13433640
+vilo,2025-12,22341,14392620.0,9084900
+vilo,2026-01,20444,13493040.0,4787640
+vilo,2026-02,7553,4984980.0,2880240
+vilo,2026-03,17002,11221320.0,5173080
+vilo,2026-04,21375,14107500.0,6814500
+vilo,2026-05,27751,18315660.0,14757600
+vilo,2026-06,605,399300.0,399300
+wonder,2025-02,149,50820.0,50820
+wonder,2025-03,2608,1668480.0,1668480
+wonder,2025-04,2242,1479060.0,1479060
+wonder,2025-05,1130,737220.0,737220
+wonder,2025-06,472,304260.0,304260
+wonder,2025-07,3181,2099460.0,2099460
+wonder,2025-08,3108,2051280.0,2051280
+wonder,2025-09,453,298980.0,298980
+wonder,2025-10,1692,1116720.0,1116720
+wonder,2025-11,5075,3349500.0,3349500
+wonder,2025-12,4865,3210900.0,3210900
+wonder,2026-01,4676,3086160.0,3086160
+wonder,2026-02,2075,1369500.0,1369500
+yewon,2023-10,123,28380.0,28380
+yewon,2023-11,244,59400.0,59400
+yewon,2023-12,601,180840.0,180840
+yewon,2024-01,289,31020.0,31020
+yewon,2024-02,666,243540.0,243540
+yewon,2024-03,2884,693660.0,693660
+yewon,2024-04,2317,325380.0,325380
+yewon,2024-05,4664,1317360.0,1317360
+yewon,2024-06,2333,681120.0,681120
+yewon,2024-07,1994,628980.0,628980
+yewon,2024-08,1669,572880.0,572880
+yewon,2024-09,478,197340.0,197340
+yewon,2024-10,1035,633600.0,633600
+yewon,2024-11,13643,6487800.0,6487800
+yewon,2024-12,19007,8881620.0,8881620
+yewon,2025-01,10966,5222580.0,5222580
+yewon,2025-02,16358,8566140.0,8566140
+yewon,2025-03,2202,1355640.0,1355640
+yewon,2025-04,134,53460.0,53460
+yewon,2025-05,121,48840.0,48840
+yewon,2025-06,3295,1962180.0,1962180
+yewon,2025-07,4421,2848560.0,2848560
+yewon,2025-08,4224,2751540.0,2751540
+yewon,2025-09,3895,2523180.0,2523180
+yewon,2025-10,6,3960.0,3960
+yongdaeri,2023-06,389,282480.0,282480
+yongdaeri,2023-07,394,289740.0,289740
+yongdaeri,2023-08,762,545820.0,545820
+yongdaeri,2023-09,1507,1052700.0,1052700
+yongdaeri,2023-10,988,358380.0,358380
+yongdaeri,2023-11,638,417120.0,417120
+yongdaeri,2023-12,853,526020.0,526020
+yongdaeri,2024-01,1604,1092960.0,1092960
+yongdaeri,2024-02,695,486420.0,486420
+yongdaeri,2024-03,1158,801900.0,801900
+yongdaeri,2024-04,5331,2098140.0,2098140
+yongdaeri,2024-05,10778,3920400.0,3920400
+yongdaeri,2024-06,11673,7370880.0,7370880
+yongdaeri,2024-07,9588,6213900.0,6213900
+yongdaeri,2024-08,7708,6335340.0,6335340
+yongdaeri,2024-09,8606,6319500.0,6319500
+yongdaeri,2024-10,1606,2290860.0,2290860
+yongdaeri,2024-11,1261,1447380.0,1447380
+yongdaeri,2024-12,1612,1566840.0,1566840
+yongdaeri,2025-01,1924,4027320.0,4027320
+yongdaeri,2025-02,911,1035540.0,1035540
+yongdaeri,2025-03,5331,4154040.0,4154040
+yongdaeri,2025-04,1003,1157640.0,1157640
+yongdaeri,2025-05,6316,4853640.0,4853640
+yongdaeri,2025-06,1514,1004520.0,1004520
+yongdaeri,2025-07,3931,2605680.0,2605680
+yongdaeri,2025-08,9519,6285840.0,6285840
+yongdaeri,2025-09,1587,1050720.0,1050720
+yongdaeri,2025-10,4328,2862420.0,2862420
+yongdaeri,2025-11,4438,2942280.0,2942280
+yongdaeri,2025-12,21461,14172840.0,14172840
+yongdaeri,2026-01,11615,7667880.0,7667880
+yongdaeri,2026-02,5982,3960660.0,456720
+yongdaeri,2026-03,9527,6296400.0,558360
+yongdaeri,2026-04,9630,6364380.0,2141700
+yongdaeri,2026-05,10103,6673920.0,5588880
+yongdaeri,2026-06,128,84480.0,84480
+yu_shan,2024-02,1764,238260.0,238260
+yu_shan,2024-03,7974,1700820.0,1700820
+yu_shan,2024-04,4857,902220.0,902220
+yu_shan,2024-05,5394,1123980.0,1123980
+yu_shan,2024-06,7003,1403820.0,1403820
+yu_shan,2024-07,3398,1051380.0,1051380
+yu_shan,2024-08,3603,838860.0,838860
+yu_shan,2024-09,11834,4471500.0,4471500
+yu_shan,2024-10,1008,486420.0,486420
+yu_shan,2024-11,1861,883740.0,883740
+yu_shan,2024-12,12303,4437840.0,4437840
+yu_shan,2025-01,3195,1445400.0,1445400
+yu_shan,2025-02,1637,997920.0,997920
+yu_shan,2025-03,1045,337920.0,337920
+yu_shan,2025-04,77,25740.0,25740
+yu_shan,2025-05,12,0.0,0`;
+
+/* ---------- The companion BigQuery SQL ---------- */
+const SQL = `-- Monthly message volume & value per merchant, for the quota tracker
+-- Run in project: qraved-id, then copy results (tab-separated) into the tracker.
+SELECT
+  source_table,
+  FORMAT_DATE('%Y-%m', parsed_date)        AS month,
+  SUM(message_sent)                        AS messages_sent,
+  ROUND(SUM(message_charge_total), 2)      AS value_total,      -- full message cost (IDR)
+  ROUND(SUM(message_charge), 2)            AS value_merchant    -- merchant-borne portion (IDR)
+FROM \`qraved-id.dashboard_cache.cache_message_allmerchant\`
+WHERE parsed_date IS NOT NULL
+GROUP BY source_table, month
+ORDER BY source_table, month;`;
+
+/* ---------- Quota config query (the ops Google Sheet, surfaced as a BQ external table) ---------- */
+const QUOTA_SQL = `-- Quota config: Brand, Quota Type, Quota Amount, Value Amount, Live Date
+-- Source is a Google Sheet, so the query needs Drive read scope + sheet access.
+SELECT * FROM \`qraved-id.internal_gsheet.Quota_Tracker\`;`;
+
+/* ---------- normalize sheet values ---------- */
+function normType(v){
+  const s=String(v||'').toLowerCase();
+  if(s.includes('month') && /3|three/.test(s)) return '3 Months';
+  if(s.includes('month')) return 'Monthly';
+  if(s.includes('time'))  return '1 Time';
+  return null;
+}
+function parseQuotaDate(v){
+  if(v==null) return null;
+  const s=String(v).trim(); if(!s) return null;
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return s.slice(0,10);              // ISO
+  const MO={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12,
+            jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+  m=s.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);                                     // "2 April 2026"
+  if(m){ const mo=MO[m[2].toLowerCase()]; if(mo) return `${m[3]}-${String(mo).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`; }
+  m=s.match(/([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/);                                   // "April 2, 2026"
+  if(m){ const mo=MO[m[1].toLowerCase()]; if(mo) return `${m[3]}-${String(mo).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`; }
+  if(/^\d+(\.\d+)?$/.test(s)){ const d=new Date(Date.UTC(1899,11,30)+parseFloat(s)*86400000); if(!isNaN(d)) return d.toISOString().slice(0,10); } // Sheets serial
+  const d=new Date(s); if(!isNaN(d)) return d.toISOString().slice(0,10);
+  return null;
+}
+function buildQuotaConfig(res){
+  const fields=res.fields||[];
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z]/g,'');
+  const find=pred=>{ for(let i=0;i<fields.length;i++){ if(pred(norm(fields[i]))) return i; } return -1; };
+  let ci={ brand:find(n=>n.includes('brand')), type:find(n=>n.includes('type')),
+           qty:find(n=>n.includes('quota')&&n.includes('amount')), val:find(n=>n.includes('value')&&n.includes('amount')),
+           live:find(n=>n.includes('live')||n.includes('date')) };
+  if(ci.brand<0) ci={brand:0,type:1,qty:2,val:3,live:4};   // positional fallback (sheet without a header row)
+  const num=x=>{ if(x==null) return NaN; const n=parseFloat(String(x).replace(/[, ]/g,'')); return isNaN(n)?NaN:n; };
+  const out=[];
+  for(const row of res.rows||[]){
+    const f=row.f||[];
+    const get=i=>(i>=0 && f[i]) ? f[i].v : null;
+    const brandRaw=get(ci.brand);
+    if(!brandRaw) continue;
+    if(normBrand(brandRaw)==='brand') continue;             // header leaked into data
+    const qty=num(get(ci.qty)), val=num(get(ci.val));
+    let basis, amount;
+    if(!isNaN(val) && val>0){ basis='value'; amount=val; }
+    else if(!isNaN(qty) && qty>0){ basis='count'; amount=qty; }
+    else { basis='count'; amount=null; }
+    out.push({
+      brand: String(brandRaw).trim(),
+      key:   BRAND_MAP[normBrand(brandRaw)] || null,
+      type:  normType(get(ci.type)),
+      basis, amount,
+      live:  parseQuotaDate(get(ci.live)),
+    });
+  }
+  return out;
+}
+
+/* ---------- SQL syntax highlight (display only) ---------- */
+function highlightSQL(s){
+  let h = s
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/(--[^\n]*)/g,'<span class="cm">$1</span>');
+  h = h.replace(/'([^']*)'/g,'<span class="st">&#39;$1&#39;</span>');
+  h = h.replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|AS|AND|IS NOT NULL|SUM|ROUND|FORMAT_DATE)\b/g,
+    m => /SUM|ROUND|FORMAT_DATE/.test(m) ? '<span class="fn">'+m+'</span>' : '<span class="kw">'+m+'</span>');
+  return h;
+}
+document.getElementById('sqlpre').innerHTML = highlightSQL('-- 1) USAGE (native table)\n'+SQL+'\n\n-- 2) QUOTA CONFIG (Google Sheet)\n'+QUOTA_SQL);
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let USAGE = {};          // key -> [{idx, sent, vTotal, vMerchant}]
+let dataLoaded = false;
+let loadedAt = null;
+let filter = 'all';
+let sortMode = 'crit';
+let valBasis = 'total';
+let dataThroughIdx = null;   // latest month index present in the data
+let dataSource = 'embedded'; // 'embedded' | 'refreshed' | 'live'
+
+/* ---------- BigQuery / OAuth state ---------- */
+const CONFIGURED = !!CONFIG.CLIENT_ID && !CONFIG.CLIENT_ID.startsWith('YOUR_');
+let tokenClient = null;
+let accessToken = null;
+let tokenExpiry = 0;      // epoch ms
+let triedSilent = false;
+
+const LS_TSV='yobo_quota_tsv', LS_AT='yobo_quota_loadedat', LS_ASOF='yobo_quota_asof', LS_VB='yobo_quota_vb';
+
+/* ---------- date helpers ---------- */
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthIdxFromStr(d){ // 'YYYY-MM' or 'YYYY-MM-DD'
+  const m=String(d).match(/^(\d{4})-(\d{2})/); if(!m) return null;
+  return (+m[1])*12 + (+m[2]-1);
+}
+function idxLabel(i){ const y=Math.floor(i/12), m=i%12; return MON[m]+' '+y; }
+function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function daysInMonth(y,m){ return new Date(y,m+1,0).getDate(); } // m 0-based
+
+/* ============================================================
+   PARSE pasted TSV
+   ============================================================ */
+function parseTSV(text){
+  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim()!=='');
+  if(!lines.length) return {error:'Nothing to parse.'};
+  // delimiter: prefer tab (source_table can contain spaces)
+  const useTab = lines[0].includes('\t');
+  const split = l => useTab ? l.split('\t') : l.split(',');
+  // header detection
+  let header = split(lines[0]).map(c=>c.trim().toLowerCase());
+  const hasHeader = header.includes('source_table') || header.includes('month');
+  let cols;
+  if(hasHeader){
+    cols = {
+      src:    header.indexOf('source_table'),
+      month:  header.indexOf('month'),
+      sent:   header.indexOf('messages_sent'),
+      vtot:   header.indexOf('value_total'),
+      vmer:   header.indexOf('value_merchant'),
+    };
+  } else {
+    cols = { src:0, month:1, sent:2, vtot:3, vmer:4 }; // assume canonical order
+  }
+  if(cols.src<0 || cols.month<0){ return {error:'Could not find source_table / month columns. Keep the header row.'}; }
+
+  const usage={}; let rows=0, bad=0;
+  const start = hasHeader?1:0;
+  const num = v => { if(v==null) return 0; const n=parseFloat(String(v).replace(/[, ]/g,'')); return isNaN(n)?0:n; };
+  for(let i=start;i<lines.length;i++){
+    const c = split(lines[i]);
+    const key = (c[cols.src]||'').trim();
+    const idx = monthIdxFromStr((c[cols.month]||'').trim());
+    if(!key || idx==null){ bad++; continue; }
+    const rec = {
+      idx,
+      sent:  num(c[cols.sent]),
+      vTotal:cols.vtot>=0?num(c[cols.vtot]):0,
+      vMerchant:cols.vmer>=0?num(c[cols.vmer]):0,
+    };
+    (usage[key] = usage[key]||[]).push(rec);
+    rows++;
+  }
+  if(!rows) return {error:'No valid data rows found. Expecting tab-separated columns.'};
+  return {usage, rows, bad, merchants:Object.keys(usage).length};
+}
+
+/* ============================================================
+   COMPUTE a merchant's status for the chosen as-of date
+   ============================================================ */
+function compute(q, asOfStr){
+  const asOfIdx = monthIdxFromStr(asOfStr);
+  const asOfDate = new Date(asOfStr+'T00:00:00');
+  const liveIdx  = q.live ? monthIdxFromStr(q.live) : null;
+  const recs = USAGE[q.key] || [];
+
+  const valField = valBasis==='total' ? 'vTotal' : 'vMerchant';
+  const pick = q.basis==='value' ? valField : 'sent';
+
+  // Brand has no source_table mapping → can't join to usage
+  if(!q.key){
+    return {state:'att', label:'No source_table mapping', period:'—',
+      used:null, quota:q.amount, basis:q.basis||'count'};
+  }
+  // not live yet?
+  if(q.live && new Date(q.live+'T00:00:00') > asOfDate){
+    return {state:'att', label:'Not live yet', period:'Live '+fmtDate(q.live),
+      used:null, quota:q.amount, basis:q.basis};
+  }
+  // unconfigured quota type
+  if(!q.type){
+    // still surface this-month + lifetime usage as info
+    const thisMonth = recs.filter(r=>r.idx===asOfIdx).reduce((a,r)=>a+r[pick],0);
+    const lifetime  = recs.reduce((a,r)=>a+r[pick],0);
+    return {state:'att', label:'Set quota type', period:'—',
+      used:dataLoaded?thisMonth:null, quota:q.amount, basis:q.basis||'count',
+      note:dataLoaded?('lifetime '+fmtVal(lifetime,q.basis||'count')):'' };
+  }
+
+  // determine window
+  let lo, hi, periodLabel;
+  if(q.type==='Monthly'){
+    lo=hi=asOfIdx; periodLabel=idxLabel(asOfIdx);
+  } else if(q.type==='3 Months'){
+    const base = liveIdx!=null ? liveIdx : asOfIdx;
+    const k = Math.max(0, Math.floor((asOfIdx-base)/3));
+    lo = base + k*3; hi = lo+2;
+    periodLabel = idxLabel(lo)+' – '+idxLabel(hi);
+  } else { // 1 Time — measured cumulatively from the merchant's live date (one-time allocation, no reset)
+    const anchor = q.start ? monthIdxFromStr(q.start) : liveIdx;
+    if(anchor==null){
+      return {state:'att', label:'Set live date', period:'—', used:null, quota:q.amount, basis:q.basis};
+    }
+    lo = anchor; hi = asOfIdx;
+    periodLabel = 'since '+idxLabel(anchor);
+  }
+
+  if(!dataLoaded){
+    return {state:'nodata', label:'Load data', period:periodLabel, used:null, quota:q.amount, basis:q.basis};
+  }
+
+  const used = recs.filter(r=>r.idx>=lo && r.idx<=hi).reduce((a,r)=>a+r[pick],0);
+  const quota = q.amount;
+  let pct = quota>0 ? (used/quota*100) : null;
+
+  // projection for Monthly — only once ≥20% through the month (avoids wild early extrapolations)
+  let proj=null;
+  if(q.type==='Monthly'){
+    const y=Math.floor(asOfIdx/12), m=asOfIdx%12;
+    const dim=daysInMonth(y,m);
+    const today=new Date();
+    const sameAsRealMonth = (today.getFullYear()*12+today.getMonth())===asOfIdx;
+    const dayOfMonth = sameAsRealMonth ? today.getDate() : asOfDate.getDate();
+    if(dayOfMonth>0 && dayOfMonth<dim && (dayOfMonth/dim)>=0.2){
+      proj = used / dayOfMonth * dim;
+    }
+  }
+
+  let state='ok';
+  if(pct==null) state='att';
+  else if(pct>=100) state='over';
+  else if(pct>=80) state='warn';
+
+  return {state, period:periodLabel, used, quota, pct, proj, basis:q.basis,
+    remaining: quota!=null ? quota-used : null};
+}
+
+/* ---------- formatting ---------- */
+function fmtInt(n){ return Math.round(n).toLocaleString('en-US'); }
+function fmtRp(n){ return 'Rp\u00A0'+Math.round(n).toLocaleString('en-US'); }
+function fmtVal(n,basis){ return basis==='value'?fmtRp(n):fmtInt(n); }
+function fmtDate(s){ const d=new Date(s+'T00:00:00'); return d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear(); }
+function fmtPct(p){ return (p>=100?p.toFixed(0):p.toFixed(1))+'%'; }
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  const asOf = document.getElementById('asof').value || todayStr();
+  valBasis = document.getElementById('valbasis').value;
+
+  const rows = QUOTAS.map(q => ({q, c:compute(q, asOf)}));
+
+  // ---- stats ----
+  let over=0,warn=0,ok=0,att=0;
+  rows.forEach(({c})=>{
+    if(c.state==='over')over++;
+    else if(c.state==='warn')warn++;
+    else if(c.state==='ok')ok++;
+    else att++; // att + nodata
+  });
+  document.getElementById('stats').innerHTML = `
+    <div class="stat total"><div class="bar"></div><div class="k">Merchants tracked</div><div class="v mono">${QUOTAS.length}</div><div class="meta">with a configured quota</div></div>
+    <div class="stat over"><div class="bar"></div><div class="k">Over quota</div><div class="v mono">${over}</div><div class="meta">≥ 100% consumed</div></div>
+    <div class="stat warn"><div class="bar"></div><div class="k">Warning</div><div class="v mono">${warn}</div><div class="meta">80–99% consumed</div></div>
+    <div class="stat ok"><div class="bar"></div><div class="k">Healthy</div><div class="v mono">${ok}</div><div class="meta">under 80%</div></div>
+    <div class="stat att"><div class="bar"></div><div class="k">Needs attention</div><div class="v mono">${att}</div><div class="meta">unset / not live / no data</div></div>`;
+
+  // ---- filter ----
+  let view = rows.filter(({c})=>{
+    if(filter==='all') return true;
+    if(filter==='att') return (c.state==='att'||c.state==='nodata');
+    return c.state===filter;
+  });
+
+  // ---- sort ----
+  const critRank = s => ({over:0,warn:1,ok:2,att:3,nodata:4}[s] ?? 5);
+  view.sort((a,b)=>{
+    if(sortMode==='brand') return a.q.brand.localeCompare(b.q.brand);
+    if(sortMode==='pct')  return (b.c.pct??-1)-(a.c.pct??-1);
+    if(sortMode==='used') return (b.c.used??-1)-(a.c.used??-1);
+    // crit
+    const r=critRank(a.c.state)-critRank(b.c.state);
+    return r!==0 ? r : (b.c.pct??-1)-(a.c.pct??-1);
+  });
+
+  // ---- rows ----
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = view.map(({q,c},i)=>{
+    const basis=c.basis||q.basis||'count';
+    const typeLabel = q.type || 'Not set';
+    const typePill = basis==='value'
+      ? `<span class="pill">${typeLabel}</span> <span class="pill value">Value · IDR</span>`
+      : `<span class="pill">${typeLabel}</span> <span class="pill">Messages</span>`;
+
+    const usedCell = c.used==null ? '<span style="color:var(--muted-2)">—</span>'
+      : `<span>${fmtVal(c.used,basis)}</span>`;
+    const quotaCell = c.quota==null ? '<span style="color:var(--muted-2)">not set</span>'
+      : fmtVal(c.quota,basis);
+    let remCell='<span style="color:var(--muted-2)">—</span>';
+    if(c.remaining!=null){
+      const neg=c.remaining<0;
+      remCell = `<span class="${neg?'neg':''}">${neg?'−':''}${fmtVal(Math.abs(c.remaining),basis)}</span>`;
+    }
+
+    // consumption cell
+    let consCell;
+    if(c.pct==null){
+      const note = c.label || (c.state==='nodata'?'awaiting data':'—');
+      consCell = `<div class="cons na">${note}${c.note?` · <span class="mono">${c.note}</span>`:''}</div>`;
+    } else {
+      const cls = c.state==='over'?'r':c.state==='warn'?'a':'g';
+      const w = Math.min(100, c.pct);
+      const projTxt = (c.proj!=null && c.state!=='over')
+        ? `<span class="proj">proj. ${fmtVal(c.proj,basis)}</span>` : '';
+      consCell = `<div class="cons">
+        <div class="row1"><span class="pct">${fmtPct(c.pct)}</span>${projTxt}</div>
+        <div class="track"><div class="fill ${cls}" data-w="${w}"></div></div>
+      </div>`;
+    }
+
+    // badge
+    const badgeMap = {
+      over:['over','Over quota'], warn:['warn','Warning'], ok:['ok','Healthy'],
+      att:['att', c.label||'Attention'], nodata:['att', c.label||'No data']
+    };
+    const [bcls,btxt] = badgeMap[c.state]||['att','—'];
+
+    const flag = q.missing ? `<span class="flag miss">not in base table</span>` : '';
+
+    return `<tr style="animation-delay:${Math.min(i*22,400)}ms">
+      <td class="brand-cell"><div class="name">${q.brand}${flag}</div><div class="key">${q.key}</div></td>
+      <td>${typePill}</td>
+      <td class="period"><span class="lbl">${c.period||'—'}</span></td>
+      <td class="num">${usedCell}</td>
+      <td class="num">${quotaCell}</td>
+      <td class="num">${remCell}</td>
+      <td>${consCell}</td>
+      <td><span class="badge ${bcls}"><span class="d"></span>${btxt}</span></td>
+    </tr>`;
+  }).join('');
+
+  if(!view.length){
+    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted-2);padding:34px">No merchants match this filter.</td></tr>`;
+  }
+
+  // animate bars
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('.fill').forEach(el=>{ el.style.width = el.dataset.w+'%'; });
+  });
+
+  // ---- untracked ----
+  renderUntracked();
+
+  // ---- updated label ----
+  const u=document.getElementById('updated');
+  const through = dataThroughIdx!=null ? idxLabel(dataThroughIdx) : '—';
+  const srcLabel = dataSource==='live' ? `live · refreshed ${loadedAt||''}`
+                 : dataSource==='refreshed' ? `pasted · ${loadedAt||''}`
+                 : 'embedded snapshot';
+  u.innerHTML = `Data through <b>${through}</b> · ${srcLabel}`;
+}
+
+function renderUntracked(){
+  const known = new Set(QUOTAS.map(q=>q.key));
+  const valField = valBasis==='total' ? 'vTotal' : 'vMerchant';
+  const extras = Object.keys(USAGE)
+    .filter(k=>!known.has(k))
+    .map(k=>{
+      const recs=USAGE[k];
+      return { key:k, sent:recs.reduce((a,r)=>a+r.sent,0), val:recs.reduce((a,r)=>a+r[valField],0) };
+    })
+    .filter(x=>x.sent>0 || x.val>0)
+    .sort((a,b)=>b.sent-a.sent);
+
+  document.getElementById('untag').textContent = `${extras.length} found`;
+  const tb=document.getElementById('untbody');
+  if(!extras.length){
+    tb.innerHTML = `<tr><td colspan="3" class="empty">None — every merchant with traffic has a quota configured.</td></tr>`;
+    return;
+  }
+  tb.innerHTML = extras.map(x=>`<tr>
+    <td class="mono">${x.key}</td>
+    <td class="num mono">${fmtInt(x.sent)}</td>
+    <td class="num mono">${fmtRp(x.val)}</td>
+  </tr>`).join('');
+}
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+function computeMaxMonth(){
+  let mx=-Infinity;
+  for(const k in USAGE){ for(const r of USAGE[k]){ if(r.idx>mx) mx=r.idx; } }
+  dataThroughIdx = isFinite(mx)?mx:null;
+}
+function defaultAsOf(){
+  const t=new Date(); const todayIdx=t.getFullYear()*12+t.getMonth();
+  if(dataThroughIdx==null || dataThroughIdx>=todayIdx) return todayStr();
+  // data is older than the current month → snap to the last day of the latest data month
+  const y=Math.floor(dataThroughIdx/12), m=dataThroughIdx%12;
+  return new Date(y,m+1,0).toISOString().slice(0,10);
+}
+function loadFromText(text, silent, source){
+  const res = parseTSV(text);
+  const msg = document.getElementById('parsemsg');
+  if(res.error){
+    if(!silent){ msg.textContent = res.error; msg.className='parse-msg err'; }
+    return false;
+  }
+  USAGE = res.usage; dataLoaded=true; dataSource = source||'refreshed';
+  computeMaxMonth();
+  if(dataSource==='refreshed'){
+    loadedAt = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('loadtag').innerHTML = `Loaded from manual paste · <b>${loadedAt}</b>`;
+  } else {
+    document.getElementById('loadtag').textContent = 'Showing embedded snapshot.';
+  }
+  let txt = `Loaded ${res.rows} rows across ${res.merchants} source tables`;
+  if(res.bad) txt += ` (${res.bad} skipped)`;
+  txt += dataThroughIdx!=null ? ` · through ${idxLabel(dataThroughIdx)}.` : '.';
+  if(!silent){ msg.textContent = txt; msg.className='parse-msg ok'; }
+  render();
+  return true;
+}
+
+/* ============================================================
+   BIGQUERY OVER OAUTH (Google Identity Services + REST jobs.query)
+   ============================================================ */
+function setConn(state, text){
+  const c=document.getElementById('conn');
+  c.className='conn'+(state?(' '+state):'');
+  document.getElementById('conntxt').textContent=text;
+}
+function setRefreshBusy(busy){
+  const b=document.getElementById('refreshbtn');
+  b.disabled=busy; b.classList.toggle('spinning',busy);
+  document.getElementById('refreshlbl').textContent =
+    busy ? 'Refreshing…' : (dataSource==='live' ? 'Refresh' : 'Refresh from BigQuery');
+}
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function waitForGIS(cb){
+  let tries=0;
+  (function poll(){
+    if(window.google && google.accounts && google.accounts.oauth2){ return cb(); }
+    if(tries++>60) return;            // ~12s
+    setTimeout(poll,200);
+  })();
+}
+function ensureTokenClient(){
+  if(tokenClient) return true;
+  if(!(window.google && google.accounts && google.accounts.oauth2)) return false;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CONFIG.CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/bigquery https://www.googleapis.com/auth/drive.readonly',
+    callback: ()=>{},          // overridden per request
+  });
+  return true;
+}
+function getToken(interactive){
+  return new Promise((resolve,reject)=>{
+    if(accessToken && Date.now()<tokenExpiry) return resolve(accessToken);
+    if(!ensureTokenClient()) return reject(new Error('Google sign-in is still loading — try again in a moment.'));
+    let settled=false;
+    const done=(fn,v)=>{ if(!settled){ settled=true; fn(v); } };
+    tokenClient.callback = (resp)=>{
+      if(resp && resp.error) return done(reject, new Error(resp.error_description||resp.error));
+      accessToken = resp.access_token;
+      tokenExpiry = Date.now() + ((resp.expires_in||3600)*1000) - 60000;
+      done(resolve, accessToken);
+    };
+    tokenClient.error_callback = (err)=> done(reject, new Error((err&&(err.message||err.type))||'Authorization was cancelled.'));
+    try{ tokenClient.requestAccessToken({ prompt: interactive ? '' : 'none' }); }
+    catch(e){ done(reject, e); }
+    if(!interactive) setTimeout(()=>done(reject, new Error('silent-timeout')), 8000);
+  });
+}
+function signOut(){
+  if(accessToken && window.google && google.accounts && google.accounts.oauth2){
+    try{ google.accounts.oauth2.revoke(accessToken); }catch(_){}
+  }
+  accessToken=null; tokenExpiry=0;
+  setConn('', 'Not connected — click Refresh');
+  document.getElementById('signoutwrap').style.display='none';
+  document.getElementById('refreshlbl').textContent='Refresh from BigQuery';
+}
+async function bqQuery(sql){
+  const base = `https://bigquery.googleapis.com/bigquery/v2/projects/${encodeURIComponent(CONFIG.PROJECT_ID)}`;
+  const body = { query:sql, useLegacySql:false, timeoutMs:30000, maxResults:100000 };
+  if(CONFIG.LOCATION) body.location = CONFIG.LOCATION;
+  let r = await fetch(base+'/queries', {
+    method:'POST',
+    headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  let j = await r.json();
+  if(!r.ok) throw new Error((j.error&&j.error.message)||('BigQuery HTTP '+r.status));
+  let fields = ((j.schema&&j.schema.fields)||[]).map(f=>f.name);
+  let rows = j.rows||[];
+  let complete = j.jobComplete;
+  const jobId = j.jobReference && j.jobReference.jobId;
+  let pageToken = j.pageToken;
+  // poll until the job completes
+  let guard=0;
+  while(!complete && jobId && guard++<40){
+    await new Promise(res=>setTimeout(res,800));
+    const p=new URLSearchParams({maxResults:'100000',timeoutMs:'30000'}); if(CONFIG.LOCATION)p.set('location',CONFIG.LOCATION);
+    const gr=await fetch(`${base}/queries/${encodeURIComponent(jobId)}?`+p,{headers:{'Authorization':'Bearer '+accessToken}});
+    const gj=await gr.json();
+    if(!gr.ok) throw new Error((gj.error&&gj.error.message)||('BigQuery HTTP '+gr.status));
+    complete=gj.jobComplete;
+    if(complete){ if(!fields.length) fields=((gj.schema&&gj.schema.fields)||[]).map(f=>f.name); rows=gj.rows||[]; pageToken=gj.pageToken; }
+  }
+  // page through any remaining rows
+  guard=0;
+  while(pageToken && jobId && guard++<50){
+    const p=new URLSearchParams({maxResults:'100000',pageToken}); if(CONFIG.LOCATION)p.set('location',CONFIG.LOCATION);
+    const gr=await fetch(`${base}/queries/${encodeURIComponent(jobId)}?`+p,{headers:{'Authorization':'Bearer '+accessToken}});
+    const gj=await gr.json();
+    if(!gr.ok) throw new Error((gj.error&&gj.error.message)||('BigQuery HTTP '+gr.status));
+    rows=rows.concat(gj.rows||[]); pageToken=gj.pageToken;
+  }
+  return {fields, rows};
+}
+function usageFromBQ(res){
+  const ci=n=>res.fields.indexOf(n);
+  const iS=ci('source_table'), iM=ci('month'), iSent=ci('messages_sent'), iVt=ci('value_total'), iVm=ci('value_merchant');
+  if(iS<0||iM<0) throw new Error('Unexpected columns from BigQuery — expected source_table, month, messages_sent…');
+  const num=x=>{ const n=parseFloat(x); return isNaN(n)?0:n; };
+  const usage={};
+  for(const row of res.rows){
+    const f=row.f||[];
+    const key=f[iS]&&f[iS].v; const idx=monthIdxFromStr(f[iM]&&f[iM].v);
+    if(!key||idx==null) continue;
+    const rec={ idx, sent:num(f[iSent]&&f[iSent].v), vTotal:iVt>=0?num(f[iVt]&&f[iVt].v):0, vMerchant:iVm>=0?num(f[iVm]&&f[iVm].v):0 };
+    (usage[key]=usage[key]||[]).push(rec);
+  }
+  return usage;
+}
+function applyLive(config, usage){
+  QUOTAS = config; USAGE = usage; dataLoaded=true; dataSource='live'; computeMaxMonth();
+  loadedAt = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('loadtag').innerHTML = `Live from BigQuery · <b>${loadedAt}</b> · ${config.length} merchants · ${Object.keys(usage).length} source tables`;
+  setConn('live','Live');
+  document.getElementById('refreshlbl').textContent='Refresh';
+  document.getElementById('signoutwrap').style.display='';
+  render();
+}
+async function fetchLiveData(){
+  // quota config (Sheet) + usage (native table), in parallel
+  const [qRes, uRes] = await Promise.all([ bqQuery(QUOTA_SQL), bqQuery(SQL) ]);
+  return { config: buildQuotaConfig(qRes), usage: usageFromBQ(uRes) };
+}
+function showBQError(m){
+  setConn('err','Connection error');
+  const tag=document.getElementById('loadtag');
+  tag.innerHTML = `<span style="color:var(--red)">${escapeHtml(m)}</span>`;
+  let hint='';
+  if(/location/i.test(m)) hint='Set CONFIG.LOCATION to your dataset\u2019s region (e.g. asia-southeast2) in the page source.';
+  else if(/drive|sheet|external/i.test(m)) hint='You need view access to the Quota_Tracker Google Sheet (and the page requests Drive read scope).';
+  else if(/scope|insufficient|permission|denied|403/i.test(m)) hint='This Google account needs BigQuery Data Viewer + Job User on the project, and access to the Quota_Tracker sheet.';
+  else if(/popup|interaction|cancel|closed/i.test(m)) hint='Allow pop-ups for this page, then click Refresh again.';
+  else if(/origin|redirect|idpiframe|client|invalid_client|401/i.test(m)) hint='Add this page\u2019s origin to the OAuth client\u2019s Authorized JavaScript origins.';
+  else if(/not found|table|Quota_Tracker/i.test(m)) hint='Check the table path qraved-id.internal_gsheet.Quota_Tracker exists and is shared with you.';
+  if(hint) document.getElementById('connhelp').innerHTML = '<b>Tip:</b> '+hint;
+  document.getElementById('loader').open=true;
+}
+async function refreshFromBQ(interactive){
+  if(!CONFIGURED){
+    document.getElementById('loader').open=true;
+    document.getElementById('setupnote').style.display='';
+    setConn('demo','Setup required');
+    return;
+  }
+  setRefreshBusy(true); setConn('busy','Connecting…');
+  try{
+    await getToken(interactive);
+    document.getElementById('signoutwrap').style.display='';
+    setConn('busy','Querying BigQuery…');
+    const {config, usage} = await fetchLiveData();
+    if(!config.length) throw new Error('Quota_Tracker returned no rows.');
+    applyLive(config, usage);
+  }catch(err){
+    showBQError((err&&err.message)||String(err));
+  }finally{
+    setRefreshBusy(false);
+  }
+}
+async function refreshSilently(){
+  // attempt a no-popup token; if it needs interaction we just leave the button
+  setRefreshBusy(true); setConn('busy','Connecting…');
+  try{
+    await getToken(false);
+    document.getElementById('signoutwrap').style.display='';
+    setConn('busy','Querying BigQuery…');
+    const {config, usage} = await fetchLiveData();
+    if(config.length) applyLive(config, usage);
+    else setConn('', 'Not connected — click Refresh');
+  }catch(_){
+    setConn('', 'Not connected — click Refresh');
+  }finally{
+    setRefreshBusy(false);
+  }
+}
+
+document.getElementById('loadbtn').addEventListener('click', ()=>{
+  loadFromText(document.getElementById('paste').value, false, 'refreshed');
+});
+document.getElementById('clearbtn').addEventListener('click', ()=>{
+  document.getElementById('paste').value='';
+  try{ localStorage.removeItem(LS_TSV); localStorage.removeItem(LS_AT); }catch(e){}
+  loadFromText(EMBEDDED_CSV, false, 'embedded');
+  document.getElementById('parsemsg').textContent='Reverted to embedded data.';
+  document.getElementById('parsemsg').className='parse-msg';
+});
+document.getElementById('copysql').addEventListener('click', (e)=>{
+  const btn=e.currentTarget;
+  const both = '-- 1) USAGE (native table)\n'+SQL+'\n\n-- 2) QUOTA CONFIG (Google Sheet)\n'+QUOTA_SQL;
+  const done=()=>{ btn.textContent='Copied'; btn.classList.add('done'); setTimeout(()=>{btn.textContent='Copy SQL';btn.classList.remove('done');},1500); };
+  if(navigator.clipboard){ navigator.clipboard.writeText(both).then(done,()=>fallback()); }
+  else fallback();
+  function fallback(){ const ta=document.createElement('textarea'); ta.value=both; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(_){} document.body.removeChild(ta); }
+});
+
+document.getElementById('filterseg').addEventListener('click', (e)=>{
+  const b=e.target.closest('button'); if(!b) return;
+  filter=b.dataset.f;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('active', x===b));
+  render();
+});
+document.getElementById('sortsel').addEventListener('change', e=>{ sortMode=e.target.value; render(); });
+document.getElementById('asof').addEventListener('change', e=>{ try{localStorage.setItem(LS_ASOF,e.target.value);}catch(_){} render(); });
+document.getElementById('valbasis').addEventListener('change', e=>{ valBasis=e.target.value; try{localStorage.setItem(LS_VB,valBasis);}catch(_){} render(); });
+
+document.getElementById('refreshbtn').addEventListener('click', ()=> refreshFromBQ(true));
+const _so=document.getElementById('signoutbtn'); if(_so) _so.addEventListener('click', signOut);
+document.getElementById('fbtoggle').addEventListener('click', (e)=>{
+  const body=document.getElementById('fbbody');
+  const open = body.style.display!=='none';
+  body.style.display = open ? 'none' : '';
+  e.currentTarget.textContent = (open?'▸':'▾') + ' Manual paste fallback (if BigQuery is unavailable)';
+});
+
+/* ---------- init ---------- */
+(function init(){
+  // value basis
+  try{ const vb=localStorage.getItem(LS_VB); if(vb){ valBasis=vb; document.getElementById('valbasis').value=vb; } }catch(_){}
+
+  // always render the embedded snapshot first (instant paint + offline fallback)
+  loadFromText(EMBEDDED_CSV, true, 'embedded');
+
+  // as-of date: saved value, else sensible default from the data
+  let asof=defaultAsOf();
+  try{ const s=localStorage.getItem(LS_ASOF); if(s) asof=s; }catch(_){}
+  document.getElementById('asof').value=asof;
+  render();
+
+  // connection state
+  if(!CONFIGURED){
+    document.getElementById('setupnote').style.display='';
+    setConn('demo','Demo data — BigQuery not set up');
+    document.getElementById('loadtag').textContent='Showing embedded snapshot — BigQuery connection not configured.';
+  } else {
+    setConn('', 'Not connected — click Refresh');
+    document.getElementById('loadtag').textContent='Click “Refresh from BigQuery” to pull live data.';
+    // try once for a no-popup live refresh (works for returning, already-consented users)
+    waitForGIS(()=>{ if(!triedSilent){ triedSilent=true; refreshSilently(); } });
+  }
+})();
+</script>
+</body>
+</html>
